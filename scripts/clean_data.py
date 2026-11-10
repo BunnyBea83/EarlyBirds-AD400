@@ -9,6 +9,7 @@ Steps, in order:
     Load the raw CSVs and profile them                   
     Clean: duplicates, empty postings, missing values 
     Standardize: dates, annual pay, text, locations
+    Join company and industry details
     Save the result to data/processed/birdseye.db (SQLite)
     Write a report to docs/data/cleaning_report.md
 
@@ -113,6 +114,15 @@ CATEGORY_COLUMNS = ["formatted_work_type", "work_type", "formatted_experience_le
 # Location codes stored as fixed-width text, so leading zeros survive
 # (Boston's ZIP is 02134, not 2134). Column -> number of digits.
 CODE_COLUMNS = {"zip_code": 5, "fips": 5}
+
+# Company columns to add to each posting, and their new names.
+# The "company_" prefix keeps them apart from the posting's own columns.
+COMPANY_COLUMNS = {
+    "company_size": "company_size",
+    "city": "company_city",
+    "state": "company_state",
+    "country": "company_country",
+}
 
 # US states (plus DC), for writing every location as "City, ST".
 # Keys are lowercase so "washington", "Washington" and "WASHINGTON" all match.
@@ -520,6 +530,70 @@ def standardize_locations(postings):
     postings["location"] = postings["location"].map(to_city_state, na_action="ignore")
     return postings
 
+# ==========================================================================
+# Step 4: Join
+# ==========================================================================
+
+def join_companies(postings, companies):
+    """Add company details to each posting, matching on company_id."""
+    if "company_id" not in postings.columns:
+        return postings
+    # Keep only the company columns we want, and rename them.
+    details = companies[["company_id"] + present(companies, COMPANY_COLUMNS)].copy()
+    details["company_id"] = to_int_id(details["company_id"])
+    # One row per company, so no posting can match twice.
+    details = details.dropna(subset=["company_id"]).drop_duplicates("company_id")
+    details = details.rename(columns=COMPANY_COLUMNS)
+
+    postings = postings.copy()
+    postings["company_id"] = to_int_id(postings["company_id"])
+    # how="left" keeps every posting, even ones with no matching company.
+    # validate="many_to_one" means many postings can share a company but each
+    # company appears once; pandas raises an error if that's ever not true,
+    # which guarantees the join can't duplicate postings.
+    return postings.merge(details, on="company_id", how="left", validate="many_to_one")
+
+
+def join_industries(postings, job_industries, industries):
+    """Add industry names to each posting, keeping one row per posting.
+
+    A posting can belong to several industries. Joining them directly would
+    repeat the posting once per industry, so instead "industry" holds the
+    first one listed and "industries" lists all of them."""
+    # Link each job_id to its industry names.
+    links = job_industries[["job_id", "industry_id"]].copy()
+    links["job_id"] = to_int_id(links["job_id"])
+    links["industry_id"] = to_int_id(links["industry_id"])
+
+    names = industries[["industry_id", "industry_name"]].copy()
+    names["industry_id"] = to_int_id(names["industry_id"])
+    names = names.drop_duplicates("industry_id")
+
+    links = links.merge(names, on="industry_id", how="left").dropna(subset=["industry_name"])
+
+    # Combine each job's industries into one row.
+    # dict.fromkeys removes repeated names while keeping their original order.
+    per_job = (
+        links.groupby("job_id")["industry_name"]
+        .agg(industry="first", industries=lambda names: "; ".join(dict.fromkeys(names)))
+        .reset_index()
+    )
+
+    postings = postings.copy()
+    postings["job_id"] = to_int_id(postings["job_id"])
+    # validate="one_to_one": each posting matches at most one combined row.
+    return postings.merge(per_job, on="job_id", how="left", validate="one_to_one")
+
+
+def join_stats(postings, companies):
+    """Share of postings with no matching company, and with no industry."""
+    company_ids = to_int_id(companies["company_id"])
+    # isin() checks each posting's company_id against the companies file;
+    # empty IDs count as unmatched. mean() of True/False gives the share.
+    no_company = (~postings["company_id"].isin(company_ids)).mean()
+    no_industry = postings["industry"].isna().mean()
+    return no_company, no_industry
+
 
 # ==========================================================================
 # Step 5: Save to SQLite
@@ -610,6 +684,16 @@ def build_report(
         choice = "Left empty" if value is None else f"Filled with `{value}`"
         lines.append(f"| `{col}` | {count:,} | {choice} | {reason} |")
 
+    # Join results: how many postings found no match.
+    no_company, no_industry = join_stats(postings, frames["companies"])
+    lines += [
+        "",
+        "## Join results",
+        "",
+        f"- Postings with no matching company: {no_company:.1%}",
+        f"- Postings with no industry: {no_industry:.1%}",
+    ]
+
     lines += [""] + limitations(postings)
     lines += [""] + data_dictionary(postings)
     lines += [""] + profile(frames)
@@ -642,7 +726,7 @@ def main() -> int:
     missing_before_fill = postings.isna().sum()
     postings = apply_step(postings, steps, "Fill or keep missing values", fill_missing_values)
 
-# Step 3: standardize. None of these remove rows.
+    # Step 3: standardize. None of these remove rows.
     postings = apply_step(postings, steps, "Convert timestamps to dates", convert_dates)
     postings = apply_step(postings, steps, "Add yearly salaries", annualize_salaries)
     postings = apply_step(postings, steps, "Trim text, fix title capitalization", tidy_text)
@@ -650,6 +734,13 @@ def main() -> int:
     postings = apply_step(postings, steps, "Locations as City, ST", standardize_locations)
     postings = apply_step(postings, steps, "ZIP and FIPS codes as 5-digit text", format_codes)
 
+    # Step 4: join. Each join keeps the row count the same.
+    postings = apply_step(postings, steps, "Join company details", join_companies, frames["companies"])
+    postings = apply_step(
+        postings, steps, "Join industries",
+        join_industries, frames["job_industries"], frames["industries"],
+    )
+    
     # Step 5: save, then build the report.
     saved = save_to_sqlite(postings)
     report = build_report(
