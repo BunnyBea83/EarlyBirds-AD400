@@ -6,8 +6,9 @@ Usage (from the repository root, with the virtual environment active):
 
 Steps, in order:
 
-    Load the raw CSVs and profile them                     TA4-39
-    Clean: duplicates, empty postings, missing values      TA4-47
+    Load the raw CSVs and profile them                   
+    Clean: duplicates, empty postings, missing values 
+    Standardize: dates, annual pay, text, locations
     Save the result to data/processed/birdseye.db (SQLite)
     Write a report to docs/data/cleaning_report.md
 
@@ -98,6 +99,39 @@ MISSING_VALUE_POLICY = {
 # Used for any column not listed above.
 DEFAULT_POLICY = (None, "No rule set yet, so left empty.")
 
+# Raw timestamps stored as Unix milliseconds, converted to dates.
+DATE_COLUMNS = ["listed_time", "original_listed_time", "expiry", "closed_time"]
+
+# How many of each pay period make up a year.
+# HOURLY assumes full time: 40 hours x 52 weeks = 2,080 hours.
+PAY_PERIOD_FACTORS = {"HOURLY": 2080, "WEEKLY": 52, "BIWEEKLY": 26, "MONTHLY": 12, "YEARLY": 1}
+SALARY_COLUMNS = ["min_salary", "med_salary", "max_salary"]
+
+# Category columns whose values should use one spelling each.
+CATEGORY_COLUMNS = ["formatted_work_type", "work_type", "formatted_experience_level"]
+
+# Location codes stored as fixed-width text, so leading zeros survive
+# (Boston's ZIP is 02134, not 2134). Column -> number of digits.
+CODE_COLUMNS = {"zip_code": 5, "fips": 5}
+
+# US states (plus DC), for writing every location as "City, ST".
+# Keys are lowercase so "washington", "Washington" and "WASHINGTON" all match.
+STATE_ABBREVIATIONS = {
+    "alabama": "AL", "alaska": "AK", "arizona": "AZ", "arkansas": "AR", "california": "CA",
+    "colorado": "CO", "connecticut": "CT", "delaware": "DE", "district of columbia": "DC",
+    "florida": "FL", "georgia": "GA", "hawaii": "HI", "idaho": "ID", "illinois": "IL",
+    "indiana": "IN", "iowa": "IA", "kansas": "KS", "kentucky": "KY", "louisiana": "LA",
+    "maine": "ME", "maryland": "MD", "massachusetts": "MA", "michigan": "MI", "minnesota": "MN",
+    "mississippi": "MS", "missouri": "MO", "montana": "MT", "nebraska": "NE", "nevada": "NV",
+    "new hampshire": "NH", "new jersey": "NJ", "new mexico": "NM", "new york": "NY",
+    "north carolina": "NC", "north dakota": "ND", "ohio": "OH", "oklahoma": "OK", "oregon": "OR",
+    "pennsylvania": "PA", "rhode island": "RI", "south carolina": "SC", "south dakota": "SD",
+    "tennessee": "TN", "texas": "TX", "utah": "UT", "vermont": "VT", "virginia": "VA",
+    "washington": "WA", "west virginia": "WV", "wisconsin": "WI", "wyoming": "WY",
+}
+# The set of valid two-letter codes, for checking values like "WA".
+VALID_STATES = set(STATE_ABBREVIATIONS.values())
+
 
 # ==========================================================================
 # Helpers
@@ -115,7 +149,7 @@ def apply_step(postings, steps, label, func, *args):
     """Run one step on the postings and record the row counts before and after.
 
     *args passes any extra inputs on to the step, such as the companies table.
-    The recorded counts become the step table in the report (TA4-45)."""
+    The recorded counts become the step table in the report"""
     before = len(postings)
     postings = func(postings, *args)
     steps.append((label, before, len(postings)))
@@ -201,12 +235,14 @@ def profile(frames):
 
 def remove_duplicate_ids(postings):
     """Keep one row per job_id. keep="first" keeps the first copy and drops the rest."""
+
     return postings.drop_duplicates(subset="job_id", keep="first")
 
 
 def remove_missing_text(postings):
     """Remove postings with no title or no description, including ones that
     contain only spaces."""
+
     # Start with "keep every row", then rule rows out column by column.
     keep = pd.Series(True, index=postings.index)
     for col in ["title", "description"]:
@@ -221,6 +257,7 @@ def remove_missing_text(postings):
 def remove_repeated_postings(postings):
     """Remove the same job posted more than once under different job_ids:
     same company, title and description."""
+
     cols = present(postings, ["company_name", "title", "description", "location"])
     # Compare tidied copies so small differences don't hide a repeat:
     # \s+ turns any run of spaces or line breaks into one space, then strip()
@@ -235,10 +272,135 @@ def remove_repeated_postings(postings):
 
 def fill_missing_values(postings):
     """Fill empty cells where MISSING_VALUE_POLICY says to; leave the rest empty."""
+
     postings = postings.copy()  # work on a copy so the input isn't changed
     for col, (value, _reason) in MISSING_VALUE_POLICY.items():
         if value is not None and col in postings.columns:
             postings[col] = postings[col].fillna(value)
+    return postings
+
+# ==========================================================================
+# Step 3: Standardize
+# ==========================================================================
+
+def convert_dates(postings):
+    """Convert Unix-millisecond timestamps to dates written as YYYY-MM-DD."""
+
+    postings = postings.copy()
+    for col in present(postings, DATE_COLUMNS):
+        # The raw values count milliseconds since 1 January 1970.
+        # errors="coerce" turns anything unreadable into an empty value.
+        dates = pd.to_datetime(postings[col], unit="ms", errors="coerce")
+        # Store as "YYYY-MM-DD" text: the standard format SQLite understands
+        # for dates (it has no separate date type), and it sorts correctly.
+        postings[col] = dates.dt.strftime("%Y-%m-%d")
+    return postings
+
+
+def annualize_salaries(postings):
+    """Add yearly versions of the salary columns, using pay_period.
+
+    The originals are kept so the conversion can be checked. A posting whose
+    pay_period is missing or unknown gets empty yearly values."""
+
+    if "pay_period" not in postings.columns:
+        return postings
+    postings = postings.copy()
+    # Look up each posting's multiplier, e.g. HOURLY -> 2080.
+    # map() returns empty for any pay_period not in the dictionary.
+    period = postings["pay_period"].astype("string").str.strip().str.upper()
+    factor = period.map(PAY_PERIOD_FACTORS).astype("float")
+    for col in present(postings, SALARY_COLUMNS):
+        # to_numeric makes sure the column is numbers before multiplying.
+        postings[f"annual_{col}"] = pd.to_numeric(postings[col], errors="coerce") * factor
+    return postings
+
+
+def fix_capitalization(title):
+    """Title-case a job title only if it's ALL CAPS or all lowercase.
+
+    "DATA ANALYST" -> "Data Analyst". Mixed-case titles are left alone, so
+    acronyms like "SQL" in "SQL Developer" don't become "Sql"."""
+
+    if title.isupper() or title.islower():
+        return title.title()
+    return title
+
+
+def tidy_text(postings):
+    """Trim titles and descriptions, and make title capitalization consistent."""
+
+    postings = postings.copy()
+    # \s+ matches any run of spaces, tabs or line breaks; replacing it with one
+    # space turns "Data   Analyst" into "Data Analyst".
+    titles = postings["title"].astype("string").str.replace(r"\s+", " ", regex=True).str.strip()
+    # na_action="ignore" skips empty values instead of passing them to the function.
+    postings["title"] = titles.map(fix_capitalization, na_action="ignore")
+    # Descriptions are only trimmed: their line breaks and capitalization are
+    # kept, since later text analysis lowercases them itself.
+    postings["description"] = postings["description"].astype("string").str.strip()
+    return postings
+
+
+def standardize_categories(postings):
+    """Give each category one spelling, e.g. FULL_TIME and Full-time -> Full-Time."""
+
+    postings = postings.copy()
+    for col in present(postings, CATEGORY_COLUMNS):
+        postings[col] = (
+            postings[col]
+            .astype("string")
+            .str.strip()
+            .str.replace("_", "-")  # FULL_TIME -> FULL-TIME
+            .str.lower()            # FULL-TIME -> full-time
+            .str.title()            # full-time -> Full-Time
+        )
+    return postings
+
+
+def to_city_state(location):
+    """Rewrite one location as "City, ST", or return None if that isn't possible.
+
+    "Seattle, WA" and "Seattle, Washington" both become "Seattle, WA".
+    Values like "United States" or "Greater Seattle Area" have no city and
+    state, so they return None."""
+
+    # Split on commas and trim each piece: "Seattle , WA" -> ["Seattle", "WA"].
+    parts = [part.strip() for part in str(location).split(",")]
+    if len(parts) < 2 or not parts[0]:
+        return None
+    city, state = parts[0], parts[1]
+
+    if state.upper() in VALID_STATES:            # already a code, e.g. "wa"
+        state = state.upper()
+    elif state.lower() in STATE_ABBREVIATIONS:   # a full name, e.g. "Washington"
+        state = STATE_ABBREVIATIONS[state.lower()]
+    else:                                        # not a US state
+        return None
+    return f"{city}, {state}"
+
+
+def format_codes(postings):
+    """Store ZIP and FIPS codes as fixed-width text, e.g. 2134.0 -> "02134"."""
+
+    postings = postings.copy()
+    for col in present(postings, CODE_COLUMNS):
+        postings[col] = (
+            to_int_id(postings[col])      # 2134.0 -> 2134 (empty stays empty)
+            .astype("string")             # 2134 -> "2134"
+            .str.zfill(CODE_COLUMNS[col])  # "2134" -> "02134": pad with zeros on the left
+        )
+    return postings
+
+
+def standardize_locations(postings):
+    """Write every location as "City, ST", keeping the original in location_raw."""
+
+    if "location" not in postings.columns:
+        return postings
+    postings = postings.copy()
+    postings["location_raw"] = postings["location"]
+    postings["location"] = postings["location"].map(to_city_state, na_action="ignore")
     return postings
 
 
@@ -360,6 +522,14 @@ def main() -> int:
     # Count empty values now, before filling, so the report shows the real gaps.
     missing_before_fill = postings.isna().sum()
     postings = apply_step(postings, steps, "Fill or keep missing values", fill_missing_values)
+
+# Step 3: standardize. None of these remove rows.
+    postings = apply_step(postings, steps, "Convert timestamps to dates", convert_dates)
+    postings = apply_step(postings, steps, "Add yearly salaries", annualize_salaries)
+    postings = apply_step(postings, steps, "Trim text, fix title capitalization", tidy_text)
+    postings = apply_step(postings, steps, "One spelling per work type and level", standardize_categories)
+    postings = apply_step(postings, steps, "Locations as City, ST", standardize_locations)
+    postings = apply_step(postings, steps, "ZIP and FIPS codes as 5-digit text", format_codes)
 
     # Step 5: save, then build the report.
     saved = save_to_sqlite(postings)
