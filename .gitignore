@@ -1,0 +1,42 @@
+# Virtual environments
+.venv/
+venv/
+env/
+
+# Python caches and build output
+__pycache__/
+*.py[cod]
+*.egg-info/
+build/
+dist/
+*.spec
+
+# Test and tool caches
+.pytest_cache/
+.coverage
+htmlcov/
+.ipynb_checkpoints/
+
+# Credentials and local config
+.env
+.env.*
+!.env.example
+*.pem
+*.key
+.streamlit/secrets.toml
+
+# Data (download locally; see data/README.md)
+data/raw/
+data/processed/
+*.csv
+*.parquet
+*.db
+*.sqlite
+*.sqlite3
+*.zip
+
+# Editors and OS files
+.vscode/
+.idea/
+.DS_Store
+Thumbs.db
