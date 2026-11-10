@@ -47,6 +47,56 @@ Every column with empty values after cleaning, and how they were handled.
 | `zip_code` | 20,013 | Left empty | Location detail isn't always given. |
 | `fips` | 26,318 | Left empty | Location detail isn't always given. |
 
+## Known limitations
+
+- Only 29.6% of postings list a salary, so pay figures describe a subset of jobs.
+- Salaries stay in their original currency (AUD, BBD, CAD, EUR, GBP, USD); they weren't converted.
+- Postings were listed between 2024-03-24 and 2024-04-20, so the data is a snapshot of that period, not a long-term trend.
+- 14.5% of locations couldn't be written as `City, ST` (for example "United States" or a metro area); the original text is kept in `location_raw`.
+- Job titles are only re-capitalized when written in all caps or all lowercase, so some inconsistency remains.
+
+## Data dictionary
+
+Columns in the `postings` table. Dates are stored as YYYY-MM-DD text.
+
+| Column | Type | Description | Example |
+|---|---|---|---|
+| `job_id` | Int64 | LinkedIn's ID for the posting; one row per job_id. | 921716 |
+| `company_name` | str | Company name as shown on the posting. | Corcoran Sawyer Smith |
+| `title` | string | Job title, trimmed; all-caps or all-lowercase titles re-capitalized. | Marketing Coordinator |
+| `description` | string | Full job description text, trimmed. | Job descriptionA leading real estate fi… |
+| `max_salary` | float64 | Highest pay listed, in the posting's own pay period. | 20.0 |
+| `pay_period` | str | Pay period of the salary columns (HOURLY, YEARLY, etc.). | HOURLY |
+| `location` | str | Job location as 'City, ST'; empty when it couldn't be read that way. | Princeton, NJ |
+| `company_id` | Int64 | ID linking the posting to its company. | 2774458 |
+| `views` | float64 | Number of times the posting was viewed. | 20.0 |
+| `med_salary` | float64 | Single pay figure listed, in the posting's own pay period. | 350.0 |
+| `min_salary` | float64 | Lowest pay listed, in the posting's own pay period. | 17.0 |
+| `formatted_work_type` | string | Work type, such as Full-Time or Contract. | Full-Time |
+| `applies` | float64 | Number of applications submitted. | 2.0 |
+| `original_listed_time` | str | Date the posting was first listed (YYYY-MM-DD). | 2024-04-17 |
+| `remote_allowed` | float64 | 1 if remote work is allowed, otherwise 0. | 0.0 |
+| `job_posting_url` | str | Link to the posting on LinkedIn. | https://www.linkedin.com/jobs/view/9217… |
+| `application_url` | str | Link to apply outside LinkedIn, when given. | www.childrensnebraska.org |
+| `application_type` | str | How applications are submitted. | ComplexOnsiteApply |
+| `expiry` | str | Date the posting expires (YYYY-MM-DD). | 2024-05-17 |
+| `closed_time` | str | Date the posting closed (YYYY-MM-DD), if it did. | 2024-04-15 |
+| `formatted_experience_level` | string | Experience level, such as Entry Level; 'Not Specified' if missing. | Not Specified |
+| `skills_desc` | str | Skills text added by the employer, when given. | Requirements: We are seeking a College … |
+| `listed_time` | str | Date the posting was listed (YYYY-MM-DD). | 2024-04-17 |
+| `posting_domain` | str | Website where applications are submitted outside LinkedIn. | arrowstaffingservices.thejobnetwork.com |
+| `sponsored` | int64 | 1 if the posting was promoted, otherwise 0. | 0 |
+| `work_type` | string | Work type code, in the same spelling as formatted_work_type. | Full-Time |
+| `currency` | str | Currency of the salary figures. | USD |
+| `compensation_type` | str | Type of pay listed, such as base salary. | BASE_SALARY |
+| `normalized_salary` | float64 | The dataset's own yearly salary estimate. | 38480.0 |
+| `zip_code` | string | 5-digit ZIP code of the job location, stored as text to keep leading zeros. | 08540 |
+| `fips` | string | 5-digit county FIPS code of the job location, stored as text to keep leading zeros. | 34021 |
+| `annual_min_salary` | float64 | min_salary converted to a yearly amount. | 35360.0 |
+| `annual_med_salary` | float64 | med_salary converted to a yearly amount. | 4200.0 |
+| `annual_max_salary` | float64 | max_salary converted to a yearly amount. | 41600.0 |
+| `location_raw` | str | Job location exactly as written in the original posting. | Princeton, NJ |
+
 ## Raw files
 
 | File | Rows | Columns |

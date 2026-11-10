@@ -132,6 +132,52 @@ STATE_ABBREVIATIONS = {
 # The set of valid two-letter codes, for checking values like "WA".
 VALID_STATES = set(STATE_ABBREVIATIONS.values())
 
+# A plain-language description of each column, for the data dictionary.
+# Any column missing from this list shows "Not yet described" in the report.
+COLUMN_DESCRIPTIONS = {
+    "job_id": "LinkedIn's ID for the posting; one row per job_id.",
+    "company_name": "Company name as shown on the posting.",
+    "title": "Job title, trimmed; all-caps or all-lowercase titles re-capitalized.",
+    "description": "Full job description text, trimmed.",
+    "max_salary": "Highest pay listed, in the posting's own pay period.",
+    "med_salary": "Single pay figure listed, in the posting's own pay period.",
+    "min_salary": "Lowest pay listed, in the posting's own pay period.",
+    "pay_period": "Pay period of the salary columns (HOURLY, YEARLY, etc.).",
+    "annual_min_salary": "min_salary converted to a yearly amount.",
+    "annual_med_salary": "med_salary converted to a yearly amount.",
+    "annual_max_salary": "max_salary converted to a yearly amount.",
+    "normalized_salary": "The dataset's own yearly salary estimate.",
+    "currency": "Currency of the salary figures.",
+    "compensation_type": "Type of pay listed, such as base salary.",
+    "location": "Job location as 'City, ST'; empty when it couldn't be read that way.",
+    "location_raw": "Job location exactly as written in the original posting.",
+    "zip_code": "5-digit ZIP code of the job location, stored as text to keep leading zeros.",
+    "fips": "5-digit county FIPS code of the job location, stored as text to keep leading zeros.",
+    "company_id": "ID linking the posting to its company.",
+    "company_size": "Company size group from the companies file.",
+    "company_city": "City of the company's listed address.",
+    "company_state": "State of the company's listed address.",
+    "company_country": "Country of the company's listed address.",
+    "industry": "First industry listed for the posting.",
+    "industries": "All industries listed for the posting, separated by '; '.",
+    "views": "Number of times the posting was viewed.",
+    "applies": "Number of applications submitted.",
+    "listed_time": "Date the posting was listed (YYYY-MM-DD).",
+    "original_listed_time": "Date the posting was first listed (YYYY-MM-DD).",
+    "expiry": "Date the posting expires (YYYY-MM-DD).",
+    "closed_time": "Date the posting closed (YYYY-MM-DD), if it did.",
+    "remote_allowed": "1 if remote work is allowed, otherwise 0.",
+    "formatted_work_type": "Work type, such as Full-Time or Contract.",
+    "work_type": "Work type code, in the same spelling as formatted_work_type.",
+    "formatted_experience_level": "Experience level, such as Entry Level; 'Not Specified' if missing.",
+    "skills_desc": "Skills text added by the employer, when given.",
+    "job_posting_url": "Link to the posting on LinkedIn.",
+    "application_url": "Link to apply outside LinkedIn, when given.",
+    "application_type": "How applications are submitted.",
+    "posting_domain": "Website where applications are submitted outside LinkedIn.",
+    "sponsored": "1 if the posting was promoted, otherwise 0.",
+}
+
 
 # ==========================================================================
 # Helpers
@@ -164,6 +210,77 @@ def to_int_id(series):
     is pandas' whole-number type that can, so 10.0 becomes 10 and empty stays
     empty. In the database these become INTEGER values (or NULL)."""
     return pd.to_numeric(series, errors="coerce").astype("Int64")
+
+
+# ==========================================================================
+# Documentation helpers
+# ==========================================================================
+
+def short_text(value, limit=40):
+    """Shorten a value for the data dictionary's Example column."""
+    text = " ".join(str(value).split())  # turn line breaks and runs of spaces into single spaces
+    text = text.replace("|", "\\|")       # a raw | would break the Markdown table
+    return text if len(text) <= limit else text[: limit - 1] + "…"
+
+
+def data_dictionary(postings):
+    """Describe every column in the cleaned table: type, meaning and an example."""
+    lines = [
+        "## Data dictionary",
+        "",
+        f"Columns in the `{TABLE_NAME}` table. Dates are stored as YYYY-MM-DD text.",
+        "",
+        "| Column | Type | Description | Example |",
+        "|---|---|---|---|",
+    ]
+    for col in postings.columns:
+        values = postings[col].dropna()
+        example = short_text(values.iloc[0]) if len(values) else ""
+        description = COLUMN_DESCRIPTIONS.get(col, "Not yet described")
+        lines.append(f"| `{col}` | {postings[col].dtype} | {description} | {example} |")
+    return lines
+
+
+def limitations(postings):
+    """List known limitations of the cleaned data, with figures from this run."""
+    notes = []
+
+    annual = present(postings, ["annual_min_salary", "annual_med_salary", "annual_max_salary"])
+    if annual:
+        # any(axis=1) is True for a row with at least one yearly salary.
+        share = postings[annual].notna().any(axis=1).mean()
+        notes.append(f"Only {share:.1%} of postings list a salary, so pay figures describe a subset of jobs.")
+
+    if "currency" in postings.columns:
+        currencies = sorted(postings["currency"].dropna().astype(str).unique())
+        notes.append(
+            f"Salaries stay in their original currency ({', '.join(currencies) or 'none listed'}); "
+            "they weren't converted."
+        )
+
+    if "listed_time" in postings.columns:
+        dates = postings["listed_time"].dropna()
+        if len(dates):
+            # YYYY-MM-DD text sorts in date order, so min and max work directly.
+            notes.append(
+                f"Postings were listed between {dates.min()} and {dates.max()}, "
+                "so the data is a snapshot of that period, not a long-term trend."
+            )
+
+    if "location" in postings.columns:
+        share = postings["location"].isna().mean()
+        notes.append(
+            f"{share:.1%} of locations couldn't be written as `City, ST` (for example "
+            "\"United States\" or a metro area); the original text is kept in `location_raw`."
+        )
+
+    notes.append(
+        "Job titles are only re-capitalized when written in all caps or all lowercase, "
+        "so some inconsistency remains."
+    )
+
+    return ["## Known limitations", ""] + [f"- {note}" for note in notes]
+
 
 
 # ==========================================================================
@@ -493,6 +610,8 @@ def build_report(
         choice = "Left empty" if value is None else f"Filled with `{value}`"
         lines.append(f"| `{col}` | {count:,} | {choice} | {reason} |")
 
+    lines += [""] + limitations(postings)
+    lines += [""] + data_dictionary(postings)
     lines += [""] + profile(frames)
     return "\n".join(lines) + "\n"
 
