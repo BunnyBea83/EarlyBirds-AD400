@@ -1,0 +1,19 @@
+# Describes the birdseye package so pip can install it.
+# `pip install -r requirements.txt` installs it automatically (see the -e . line
+# at the end of requirements.txt), which makes `import birdseye` work everywhere:
+# in scripts, the Streamlit dashboard, notebooks and tests.
+
+[build-system]
+requires = ["setuptools>=68"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "birdseye"
+version = "0.1.0"
+description = "A bird's-eye view of the job market."
+requires-python = ">=3.11"
+# Dependencies live in requirements.txt with pinned versions.
+
+[tool.setuptools.packages.find]
+# The package's code is in src/birdseye/.
+where = ["src"]

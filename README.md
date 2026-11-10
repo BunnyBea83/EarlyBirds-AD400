@@ -79,6 +79,7 @@ A successful run ends with `2 passed`. This is a smoke check that confirms your 
 ├── scripts/          Command-line scripts (e.g. download_data.py)
 ├── data/             Local data (see data/README.md; never committed)
 ├── requirements.txt  Pinned Python dependencies
+├── pyproject.toml    Makes src/birdseye importable as `import birdseye`
 ├── .python-version   Supported Python version
 ├── CHANGELOG.md      Record of changes per sprint
 └── CONTRIBUTING.md   How to contribute

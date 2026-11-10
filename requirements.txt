@@ -16,3 +16,8 @@ plotly==7.1.0
 
 # Tests (run with: pytest)
 pytest==9.2.0
+
+# This project's own package (src/birdseye), installed in "editable" mode:
+# `import birdseye` then works everywhere, and code changes take effect without
+# reinstalling. Uses pyproject.toml. Must be run from the repository root.
+-e .
