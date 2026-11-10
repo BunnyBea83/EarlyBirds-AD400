@@ -7,6 +7,7 @@ Usage (from the repository root, with the virtual environment active):
 Steps, in order:
 
     Load the raw CSVs and profile them                     TA4-39
+    Clean: duplicates, empty postings, missing values      TA4-47
     Save the result to data/processed/birdseye.db (SQLite)
     Write a report to docs/data/cleaning_report.md
 
@@ -53,6 +54,50 @@ RAW_FILES = {
 # missing column gives a clear message instead of a confusing error later.
 REQUIRED_COLUMNS = ["job_id", "title", "description"]
 
+# ==========================================================================
+# Data Cleaning Formatting
+# ==========================================================================
+
+# ID columns in each file, converted to whole numbers right after loading.
+ID_COLUMNS = {
+    "postings": ["job_id", "company_id"],
+    "companies": ["company_id"],
+    "job_industries": ["job_id", "industry_id"],
+    "industries": ["industry_id"],
+}
+
+# PRD data processing metric: keep at least 95% of records after cleaning.
+KEEP_TARGET = 0.95
+
+# what to do with missing values in each column.
+# Each entry is: column -> (value to fill in, or None to leave empty, reason).
+# The reasons are copied into the report, so every choice is documented.
+SALARY_REASON = "Not every posting lists pay; filling it in would invent salaries."
+MISSING_VALUE_POLICY = {
+    "remote_allowed": (0, "Empty means the posting didn't mark remote work as allowed, so 0 (no)."),
+    "formatted_experience_level": ("Not specified", "Kept as its own group so these postings still appear in charts."),
+    "skills_desc": (None, "Optional field that most postings leave blank."),
+    "min_salary": (None, SALARY_REASON),
+    "med_salary": (None, SALARY_REASON),
+    "max_salary": (None, SALARY_REASON),
+    "pay_period": (None, SALARY_REASON),
+    "currency": (None, SALARY_REASON),
+    "compensation_type": (None, SALARY_REASON),
+    "normalized_salary": (None, SALARY_REASON),
+    "company_id": (None, "Postings without a company are counted in the join results."),
+    "company_name": (None, "Postings without a company are counted in the join results."),
+    "views": (None, "Unknown isn't the same as zero views."),
+    "applies": (None, "Unknown isn't the same as zero applications."),
+    "closed_time": (None, "Most postings were still open when the data was collected."),
+    "expiry": (None, "No expiry date was recorded."),
+    "application_url": (None, "Only present when applying happens outside LinkedIn."),
+    "posting_domain": (None, "Only present when applying happens outside LinkedIn."),
+    "zip_code": (None, "Location detail isn't always given."),
+    "fips": (None, "Location detail isn't always given."),
+}
+# Used for any column not listed above.
+DEFAULT_POLICY = (None, "No rule set yet, so left empty.")
+
 
 # ==========================================================================
 # Helpers
@@ -75,6 +120,16 @@ def apply_step(postings, steps, label, func, *args):
     postings = func(postings, *args)
     steps.append((label, before, len(postings)))
     return postings
+
+
+def to_int_id(series):
+    """Convert an ID column to whole numbers that allow gaps.
+
+    pandas reads a number column with any empty cells as decimals (10.0),
+    because its plain whole-number type can't hold "empty". "Int64" (capital I)
+    is pandas' whole-number type that can, so 10.0 becomes 10 and empty stays
+    empty. In the database these become INTEGER values (or NULL)."""
+    return pd.to_numeric(series, errors="coerce").astype("Int64")
 
 
 # ==========================================================================
@@ -107,6 +162,11 @@ def load_raw(raw_dir=RAW_DIR):
     if missing_cols:
         raise KeyError(f"postings.csv is missing required column(s): {missing_cols}")
 
+    # Make every ID a whole number (10, not 10.0), in every file that has it.
+    for name, columns in ID_COLUMNS.items():
+        for col in present(frames[name], columns):
+            frames[name][col] = to_int_id(frames[name][col])
+
     return frames
 
 
@@ -133,6 +193,53 @@ def profile(frames):
             lines.append(f"| `{col}` | {df[col].dtype} | {missing[col]:,} |")
 
     return lines
+
+
+# ==========================================================================
+# Step 2: Clean
+# ==========================================================================
+
+def remove_duplicate_ids(postings):
+    """Keep one row per job_id. keep="first" keeps the first copy and drops the rest."""
+    return postings.drop_duplicates(subset="job_id", keep="first")
+
+
+def remove_missing_text(postings):
+    """Remove postings with no title or no description, including ones that
+    contain only spaces."""
+    # Start with "keep every row", then rule rows out column by column.
+    keep = pd.Series(True, index=postings.index)
+    for col in ["title", "description"]:
+        # astype("string") treats every value as text; strip() removes spaces
+        # from both ends; fillna("") turns empty cells into "" so one check
+        # catches both empty cells and space-only text.
+        text = postings[col].astype("string").str.strip().fillna("")
+        keep &= text != ""  # &= means "keep AND this condition"
+    return postings[keep]
+
+
+def remove_repeated_postings(postings):
+    """Remove the same job posted more than once under different job_ids:
+    same company, title and description."""
+    cols = present(postings, ["company_name", "title", "description", "location"])
+    # Compare tidied copies so small differences don't hide a repeat:
+    # \s+ turns any run of spaces or line breaks into one space, then strip()
+    # trims the ends and lower() ignores capitalization. So "Data Analyst "
+    # and "data  analyst" count as the same. The original text isn't changed.
+    key = postings[cols].apply(
+        lambda col: col.astype("string").str.replace(r"\s+", " ", regex=True).str.strip().str.lower()
+    )
+    # duplicated() marks every repeat after the first; ~ flips it to "keep".
+    return postings[~key.duplicated(keep="first")]
+
+
+def fill_missing_values(postings):
+    """Fill empty cells where MISSING_VALUE_POLICY says to; leave the rest empty."""
+    postings = postings.copy()  # work on a copy so the input isn't changed
+    for col, (value, _reason) in MISSING_VALUE_POLICY.items():
+        if value is not None and col in postings.columns:
+            postings[col] = postings[col].fillna(value)
+    return postings
 
 
 # ==========================================================================
@@ -179,6 +286,7 @@ def build_report(
     frames,
     postings,
     saved,
+    missing_before_fill,
 ):
     """Combine everything into one Markdown report."""
     lines = [
@@ -196,6 +304,32 @@ def build_report(
     for number, (name, before, after) in enumerate(steps, start=1):
         lines.append(f"| {number} | {name} | {before:,} | {after:,} | {before - after:,} |")
     lines += ["", f"Saved {saved:,} rows to the `{TABLE_NAME}` table in `data/processed/birdseye.db`."]
+
+    # Check the 95% target against the raw row count (the first step's count).
+    raw_count = steps[0][1]
+    kept = len(postings) / raw_count if raw_count else 0
+    status = "met" if kept >= KEEP_TARGET else "NOT met"
+    lines.append(
+        f"Kept {len(postings):,} of {raw_count:,} raw postings ({kept:.1%}). "
+        f"Target of at least {KEEP_TARGET:.0%}: {status}."
+    )
+
+    # Missing values: what was empty after cleaning, and what was done about it.
+    lines += [
+        "",
+        "## Missing values",
+        "",
+        "Every column with empty values after cleaning, and how they were handled.",
+        "",
+        "| Column | Missing | Choice | Reason |",
+        "|---|---:|---|---|",
+    ]
+    for col, count in missing_before_fill.items():
+        if count == 0:
+            continue
+        value, reason = MISSING_VALUE_POLICY.get(col, DEFAULT_POLICY)
+        choice = "Left empty" if value is None else f"Filled with `{value}`"
+        lines.append(f"| `{col}` | {count:,} | {choice} | {reason} |")
 
     lines += [""] + profile(frames)
     return "\n".join(lines) + "\n"
@@ -216,7 +350,16 @@ def main() -> int:
 
     postings = frames["postings"]
     # Each entry is (step name, rows before, rows after), for the report.
-    steps = [("Load raw postings (TA4-39)", len(postings), len(postings))]
+    steps = [("Load raw postings", len(postings), len(postings))]
+
+    # Step 2: clean. Empty postings are removed before looking for
+    # repeats, so blank postings aren't counted as repeats of each other.
+    postings = apply_step(postings, steps, "Remove duplicate job_ids", remove_duplicate_ids)
+    postings = apply_step(postings, steps, "Remove postings with no title or description", remove_missing_text)
+    postings = apply_step(postings, steps, "Remove repeated postings", remove_repeated_postings)
+    # Count empty values now, before filling, so the report shows the real gaps.
+    missing_before_fill = postings.isna().sum()
+    postings = apply_step(postings, steps, "Fill or keep missing values", fill_missing_values)
 
     # Step 5: save, then build the report.
     saved = save_to_sqlite(postings)
@@ -225,6 +368,7 @@ def main() -> int:
         frames,
         postings,
         saved,
+        missing_before_fill,
     )
 
     # Save the report. utf-8 keeps special characters readable on Windows.
