@@ -1,0 +1,23 @@
+# Pinned dependencies for Python 3.11. Install with: pip install -r requirements.txt
+# Add new packages with an exact version (package==x.y.z) in the PR that first uses them.
+# SQLite is built into Python, so it needs no entry here.
+
+# Downloading the dataset from Kaggle (scripts/download_data.py)
+kagglehub==1.0.3
+
+# Data handling: loading, cleaning and counting skills (TA4-24, TA4-54)
+pandas==3.1.1
+
+# Dashboard (Birdseye View)
+streamlit==1.67.0
+
+# Interactive charts shown in the dashboard (TA4-15, TA4-62)
+plotly==7.1.0
+
+# Tests (run with: pytest)
+pytest==9.2.0
+
+# This project's own package (src/birdseye), installed in "editable" mode:
+# `import birdseye` then works everywhere, and code changes take effect without
+# reinstalling. Uses pyproject.toml. Must be run from the repository root.
+-e .
