@@ -28,6 +28,7 @@ Skip the changelog for typo fixes, formatting or comment-only PRs.
 ## [Unreleased]
 
 ### Added
+- TA4-45: Cleaning report with step-by-step row counts, missing-value choices, known limitations and a data dictionary (`docs/data/cleaning_report.md`). (#2)
 
 ### Changed
 
@@ -36,8 +37,16 @@ Skip the changelog for typo fixes, formatting or comment-only PRs.
 ### Removed
 
 ### Data
+- TA4-39: Raw postings, company and industry files load into a SQLite database (`data/processed/birdseye.db`) with `python scripts/clean_data.py`. (#2)
+- TA4-47: Duplicate job IDs, postings with no title or description, and repeated postings (same company, title, description and location) are removed. (#2)
+- TA4-43: Dates are YYYY-MM-DD, salaries have yearly versions, work types and experience levels use one spelling, locations read "City, ST", and ZIP and FIPS codes keep leading zeros. (#2)
+- TA4-49: Each posting includes its company details and industries, with no postings duplicated. (#2)
 
 ### Infrastructure
+- TA4-74: Repository set up with README, contribution guide, changelog, pinned dependencies and a smoke test. (#1)
+- TA4-74: One-command dataset download with `python scripts/download_data.py`. (#1)
+- TA4-74: The `birdseye` package can be imported anywhere after `pip install -r requirements.txt`. (#1)
+- TA4-24: Tests for the cleaning rules; README and data README explain building and viewing the database. (#2)
 
 <!--
 AT SPRINT END (PM)
