@@ -5,6 +5,7 @@ The caller owns the connection and must close it when finished.
 """
 
 import sqlite3
+from collections.abc import Iterable
 
 from birdseye.skills_catalog import SKILLS
 
@@ -63,3 +64,34 @@ def initialize_storage(conn: sqlite3.Connection) -> None:
                 )
 
 
+def save_posting_skills(
+    conn: sqlite3.Connection, job_id: int, skill_names: Iterable[str]
+) -> None:
+    """Replace a posting's skills atomically with canonical catalog names.
+
+    Duplicate names are harmless. Empty results clear old matches. Unknown
+    names or job IDs raise ValueError before changing existing relationships.
+    The connection must have been initialized with initialize_storage.
+    """
+    if isinstance(skill_names, (str, bytes)):
+        raise TypeError("skill_names must be an iterable of canonical names")
+    names = set(skill_names)
+    catalog = dict(conn.execute("SELECT name, skill_id FROM skills"))
+    unknown = names - catalog.keys()
+    if unknown:
+        raise ValueError(f"Unknown canonical skills: {sorted(unknown)}")
+    if conn.execute("SELECT 1 FROM postings WHERE job_id = ?", (job_id,)).fetchone() is None:
+        raise ValueError(f"Unknown job_id: {job_id}")
+    # A savepoint also preserves any transaction the caller already owns.
+    conn.execute("SAVEPOINT save_posting_skills")
+    try:
+        conn.execute("DELETE FROM posting_skills WHERE job_id = ?", (job_id,))
+        conn.executemany(
+            "INSERT INTO posting_skills(job_id, skill_id) VALUES (?, ?)",
+            ((job_id, catalog[name]) for name in names),
+        )
+    except Exception:
+        conn.execute("ROLLBACK TO save_posting_skills")
+        conn.execute("RELEASE save_posting_skills")
+        raise
+    conn.execute("RELEASE save_posting_skills")
