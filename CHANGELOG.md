@@ -28,7 +28,7 @@ Skip the changelog for typo fixes, formatting or comment-only PRs.
 ## [Unreleased]
 
 ### Added
-- TA4-69: Compare the skill category mix for each role.
+- TA4-69: Compare the skill category mix for each role. (#14)
 - TA4-68: Show frequent skills as word clouds for each role. (#13)
 - TA4-67: Compare demand for the top 20 skills across roles in a heatmap. (#12)
 - TA4-66: Show the top requested skills by role as horizontal bars. (#11)
