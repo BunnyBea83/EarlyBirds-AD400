@@ -166,3 +166,9 @@ See [`CONTRIBUTING.md`](CONTRIBUTING.md) for branch naming, Jira references, and
 - **Tests:** pytest
 
 Exact versions are pinned in `requirements.txt`.
+## View skill demand
+
+Build the database and run skill extraction, then run `streamlit run app.py`
+from the repository root. Set `BIRDSEYE_DB` to use another database path.
+Select **Use synthetic demo data** in the sidebar to try the dashboard without
+downloading data. See [skill counting rules](docs/skill_summary.md).
