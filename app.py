@@ -5,6 +5,7 @@ import sqlite3
 
 import streamlit as st
 
+from birdseye.charts.heatmap import skill_heatmap
 from birdseye.charts.top_skills import top_skills_chart
 from birdseye.skill_summary import load_summary, summarize
 
@@ -46,3 +47,7 @@ st.header("Top skills by role")
 for role, row in roles.items():
     st.plotly_chart(top_skills_chart(role, row), key=f"top-{role}")
 st.caption("A posting can mention several skills, so these percentages can add up to more than 100%.")
+
+st.header("Compare skill demand across roles")
+with st.container(horizontal=True):
+    st.plotly_chart(skill_heatmap(roles), width="content", key="skill-heatmap")
