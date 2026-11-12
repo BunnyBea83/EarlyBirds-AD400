@@ -28,6 +28,7 @@ Skip the changelog for typo fixes, formatting or comment-only PRs.
 ## [Unreleased]
 
 ### Added
+- TA4-40: Extract canonical skill mentions with case, whitespace, alias, and punctuation support.
 - TA4-45: Cleaning report with step-by-step row counts, missing-value choices, known limitations and a data dictionary (`docs/data/cleaning_report.md`). (#2)
 
 ### Changed
