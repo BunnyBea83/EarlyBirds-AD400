@@ -29,7 +29,7 @@ def _matchers(catalog: tuple[Skill, ...]):
                 + r")(?![\w+#])",
                 re.IGNORECASE,
             ),
-        ),
+        )
         for skill in catalog
     )
 
