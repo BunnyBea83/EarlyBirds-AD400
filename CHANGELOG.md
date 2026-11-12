@@ -28,6 +28,7 @@ Skip the changelog for typo fixes, formatting or comment-only PRs.
 ## [Unreleased]
 
 ### Added
+- TA4-46: Verify raw-to-cleaned-to-skills processing, catalog consolidation, record errors, reruns, and database rebuilds with isolated functional tests.
 - TA4-37: Process cleaned postings in chunks with record validation, warning logs, stored catalog matching, and structured outcomes.
 - TA4-44: Add reviewed skill/alias management and confirmed consolidation that preserves posting associations.
 - TA4-40: Extract canonical skill mentions with case, whitespace, alias, and punctuation support.

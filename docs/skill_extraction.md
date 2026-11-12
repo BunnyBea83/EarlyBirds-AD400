@@ -49,3 +49,12 @@ so run extraction again afterward.
 Python callers can use `birdseye.skill_batch.process_postings`, which returns
 `BatchResult` counts and accepts a progress callback. Tests use temporary databases:
 `python -m pytest tests/test_skill_batch.py`.
+
+## Functional verification — TA4-46
+
+`python -m pytest tests/test_skill_workflow.py` runs temporary raw CSVs through
+the actual cleaning orchestrator and invokes extraction as a separate process.
+It verifies exact stored skill results, deduplication, no-match postings, foreign
+keys, rebuilds, changed descriptions, catalog additions and consolidation, and
+record warnings without aborting the batch. No production data or local cleaning
+report is modified. Run the full suite using `python -m pytest`.
