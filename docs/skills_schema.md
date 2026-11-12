@@ -15,3 +15,8 @@ and aliases. Cleaning rebuilds clear derived links and restore the unique postin
 index so the schema remains valid before extraction runs again.
 
 Run `python -m pytest tests/test_skills_schema.py` for schema verification.
+
+TA4-42 adds `save_posting_skills(conn, job_id, canonical_names)`. Initialize the
+connection first. Saves replace only that posting's links atomically, deduplicate
+input, reject unknown canonical names, and participate in an existing transaction.
+An empty list clears matches. Each skill can still belong to many postings.
