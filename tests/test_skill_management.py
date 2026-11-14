@@ -56,6 +56,16 @@ def test_confirmed_merge_preserves_links_and_aliases_without_duplicates(conn):
     assert conn.execute("PRAGMA foreign_key_check").fetchall() == []
 
 
+def test_rename_preserves_omitted_category_and_allows_explicit_changes(conn):
+    skill_id = add_skill(conn, "Technical Writing", category="Professional")
+    update_skill(conn, skill_id, name="Documentation Writing")
+    assert conn.execute("SELECT category FROM skills WHERE skill_id = ?", (skill_id,)).fetchone() == ("Professional",)
+    update_skill(conn, skill_id, name="Documentation Writing", category="Communication")
+    assert conn.execute("SELECT category FROM skills WHERE skill_id = ?", (skill_id,)).fetchone() == ("Communication",)
+    update_skill(conn, skill_id, name="Documentation Writing", category=None)
+    assert conn.execute("SELECT category FROM skills WHERE skill_id = ?", (skill_id,)).fetchone() == (None,)
+
+
 def test_uncertain_merge_and_conflicting_alias_are_rejected(conn):
     java, javascript = add_skill(conn, "Java"), add_skill(conn, "JavaScript")
     with pytest.raises(ValueError, match="explicit confirmation"):
