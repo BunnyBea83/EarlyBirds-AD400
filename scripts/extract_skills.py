@@ -29,7 +29,12 @@ def main(argv: list[str] | None = None) -> int:
         result = process_postings(args.db, batch_size=args.batch_size, progress=report_progress)
     except (sqlite3.Error, ValueError, TypeError, OSError) as err:
         print(f"Skill extraction failed: {err}", file=sys.stderr)
-        print("Build the database with python scripts/clean_data.py first.", file=sys.stderr)
+        error_code = getattr(err, "sqlite_errorcode", None)
+        primary_code = error_code & 0xFF if error_code is not None else None
+        if primary_code in (sqlite3.SQLITE_BUSY, sqlite3.SQLITE_LOCKED):
+            print("Close other programs using the database and try again.", file=sys.stderr)
+        elif primary_code == sqlite3.SQLITE_CANTOPEN and not args.db.exists():
+            print("Build the database with python scripts/clean_data.py first.", file=sys.stderr)
         return 1
     print(
         f"Saved {result.skill_links:,} skill links from {result.processed:,} postings; "

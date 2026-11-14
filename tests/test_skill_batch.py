@@ -80,7 +80,37 @@ def test_missing_database_is_not_created(tmp_path, capsys):
     path = tmp_path / "missing.db"
     assert main(["--db", str(path)]) == 1
     assert not path.exists()
-    assert "Skill extraction failed" in capsys.readouterr().err
+    error = capsys.readouterr().err
+    assert "Skill extraction failed" in error
+    assert "Build the database with python scripts/clean_data.py first." in error
+
+
+def test_command_invalid_batch_size_has_no_database_hint(database, capsys):
+    assert main(["--db", str(database), "--batch-size", "0"]) == 1
+    error = capsys.readouterr().err
+    assert "batch_size must be a positive integer" in error
+    assert "clean_data" not in error
+    assert "Close other programs" not in error
+
+
+def test_command_locked_database_has_specific_hint(database, capsys):
+    with sqlite3.connect(database) as conn:
+        conn.execute("BEGIN EXCLUSIVE")
+        assert main(["--db", str(database)]) == 1
+    error = capsys.readouterr().err
+    assert "database is locked" in error
+    assert "Close other programs using the database and try again." in error
+    assert "clean_data" not in error
+
+
+def test_command_other_database_error_has_no_rebuild_hint(tmp_path, capsys):
+    path = tmp_path / "corrupt.db"
+    path.write_text("not a SQLite database")
+    assert main(["--db", str(path)]) == 1
+    error = capsys.readouterr().err
+    assert "file is not a database" in error
+    assert "clean_data" not in error
+    assert "Close other programs" not in error
 
 
 def test_missing_schema_has_helpful_error(tmp_path, capsys):

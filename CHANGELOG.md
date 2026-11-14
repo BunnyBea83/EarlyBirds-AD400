@@ -36,6 +36,7 @@ Skip the changelog for typo fixes, formatting or comment-only PRs.
 ### Changed
 
 ### Fixed
+- TA4-37: Show specific extraction error hints for missing or locked databases without suggesting a rebuild for unrelated failures. (#7)
 
 ### Removed
 
