@@ -24,6 +24,8 @@ and category survive; the source row is removed. Omit confirmation and no merge
 occurs. No uncertain fuzzy similarity automatically changes the catalog.
 
 Renaming preserves the ID, old name as an alias, and posting associations.
+Omitting `category` preserves its current value. Pass a new category to replace
+it, or explicitly pass `category=None` to clear it.
 Initialization will not resurrect renamed or merged starter entries. Changes
 are atomic and participate in a caller-owned transaction when one is active.
 The caller owns and closes the connection. Reload the catalog after changes.
