@@ -13,6 +13,7 @@ streamlit==1.67.0
 
 # Interactive charts shown in the dashboard (TA4-15, TA4-62)
 plotly==7.1.0
+wordcloud==1.9.4
 
 # Tests (run with: pytest)
 pytest==9.2.0
