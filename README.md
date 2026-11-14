@@ -101,6 +101,23 @@ Close the database in either tool before running clean_data.py again, or Windows
 
 The cleaning steps are in scripts/clean_data.py; how each one works is in scripts/cleaning_functions.py.
 
+## Extract skills
+
+After building the database, run:
+
+```bash
+python scripts/extract_skills.py
+```
+
+This reads cleaned descriptions in chunks and stores unique canonical skills
+in `skills`, linked to postings through `posting_skills`. It reports progress
+and final counts. Rerunning replaces old matches without duplicates. Run it
+again whenever you rebuild the cleaned database.
+
+Use `--db PATH` for another cleaned database or `--batch-size 500` to change
+the number of descriptions read at once. See [skill extraction](docs/skill_extraction.md)
+for vocabulary coverage and matching limitations.
+
 ## Run the tests
 
 From the repository root, with the virtual environment active:
@@ -109,7 +126,9 @@ From the repository root, with the virtual environment active:
 python -m pytest
 ```
 
-A successful run ends with `12 passed`: two smoke checks for the environment and ten tests for the cleaning rules. Running it as `python -m pytest`, rather than plain `pytest`, guarantees it uses the environment's Python.
+A successful run reports all tests passing, including cleaning, skill extraction,
+storage, and batch processing. Running it as `python -m pytest`, rather than plain
+`pytest`, guarantees it uses the environment's Python.
 
 ## Troubleshooting
 

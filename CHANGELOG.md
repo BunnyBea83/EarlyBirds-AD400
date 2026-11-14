@@ -28,6 +28,7 @@ Skip the changelog for typo fixes, formatting or comment-only PRs.
 ## [Unreleased]
 
 ### Added
+- TA4-37: Process cleaned postings in chunks with record validation, warning logs, stored catalog matching, and structured outcomes.
 - TA4-44: Add reviewed skill/alias management and confirmed consolidation that preserves posting associations.
 - TA4-40: Extract canonical skill mentions with case, whitespace, alias, and punctuation support.
 - TA4-64: Map job titles to standard roles for skill comparisons. (#9)
@@ -36,6 +37,7 @@ Skip the changelog for typo fixes, formatting or comment-only PRs.
 ### Changed
 
 ### Fixed
+- TA4-37: Show specific extraction error hints for missing or locked databases without suggesting a rebuild for unrelated failures. (#7)
 - TA4-44: Preserve a skill's category when renaming unless a replacement or explicit None is provided. (#6)
 - TA4-42: Normalize capitalization and whitespace when saving canonical skill links. (#5)
 

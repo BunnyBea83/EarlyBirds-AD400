@@ -10,7 +10,7 @@ from collections.abc import Iterable
 from birdseye.skills_catalog import SKILLS
 
 
-def initialize_storage(conn: sqlite3.Connection) -> None:
+def initialize_storage(conn: sqlite3.Connection, *, allow_missing_job_ids: bool = False) -> None:
     """Create tables and seed the catalog without changing existing skill IDs.
 
     Requires a postings table with unique, non-null job IDs. Run outside an
@@ -20,7 +20,7 @@ def initialize_storage(conn: sqlite3.Connection) -> None:
         raise ValueError("initialize_storage requires no active transaction")
     conn.execute("PRAGMA foreign_keys = ON")
     with conn:
-        if conn.execute("SELECT 1 FROM postings WHERE job_id IS NULL LIMIT 1").fetchone():
+        if not allow_missing_job_ids and conn.execute("SELECT 1 FROM postings WHERE job_id IS NULL LIMIT 1").fetchone():
             raise ValueError("postings contains a missing job_id")
         conn.execute("CREATE UNIQUE INDEX IF NOT EXISTS uq_postings_job_id ON postings(job_id)")
         conn.execute("""
