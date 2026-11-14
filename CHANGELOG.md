@@ -28,6 +28,7 @@ Skip the changelog for typo fixes, formatting or comment-only PRs.
 ## [Unreleased]
 
 ### Added
+- TA4-65: Report ranked skills and category totals by role. (#10)
 - TA4-64: Map job titles to standard roles for skill comparisons. (#9)
 - TA4-45: Cleaning report with step-by-step row counts, missing-value choices, known limitations and a data dictionary (`docs/data/cleaning_report.md`). (#2)
 
