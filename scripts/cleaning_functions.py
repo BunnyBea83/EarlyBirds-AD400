@@ -527,6 +527,14 @@ def save_to_sqlite(postings, db_path=DB_PATH):
     # even if something fails partway through.
     conn = sqlite3.connect(db_path)
     try:
+        # A rebuild can change descriptions even when job IDs stay the same.
+        # Clear derived matches before replacing postings; retain the catalog.
+        has_skills = conn.execute(
+            "SELECT 1 FROM sqlite_master WHERE type='table' AND name='posting_skills'"
+        ).fetchone()
+        if has_skills:
+            conn.execute("DELETE FROM posting_skills")
+            conn.commit()
         # pandas writes the whole DataFrame as a table in one call.
         # if_exists="replace" drops the old table first; index=False skips
         # pandas' row numbers, which would otherwise become an extra column.
@@ -534,6 +542,12 @@ def save_to_sqlite(postings, db_path=DB_PATH):
 
         # An index on job_id makes lookups by job_id fast for later stories.
         conn.execute(f"CREATE INDEX IF NOT EXISTS idx_{TABLE_NAME}_job_id ON {TABLE_NAME}(job_id)")
+        if has_skills:
+            # to_sql(replace) also drops the unique index that makes job_id
+            # a valid parent key for posting_skills. Restore it immediately.
+            conn.execute(
+                f"CREATE UNIQUE INDEX IF NOT EXISTS uq_postings_job_id ON {TABLE_NAME}(job_id)"
+            )
         conn.commit()  # make the changes permanent
 
         # Read the count back with SQL, to confirm the data really landed.
