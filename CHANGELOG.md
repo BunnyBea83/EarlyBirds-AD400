@@ -41,6 +41,8 @@ Skip the changelog for typo fixes, formatting or comment-only PRs.
 - TA4-37: Show specific extraction error hints for missing or locked databases without suggesting a rebuild for unrelated failures. (#7)
 - TA4-42: Normalize capitalization and whitespace when saving canonical skill links. (#5)
 - TA4-44: Preserve a skill's category when renaming unless a replacement or explicit None is provided. (#6)
+- TA4-44: Preserve a skill's category when renaming unless a replacement or explicit None is provided. (#6)
+- TA4-42: Normalize capitalization and whitespace when saving canonical skill links. (#5)
 
 ### Removed
 
