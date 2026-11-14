@@ -75,8 +75,11 @@ def save_posting_skills(
     """
     if isinstance(skill_names, (str, bytes)):
         raise TypeError("skill_names must be an iterable of canonical names")
-    names = set(skill_names)
-    catalog = dict(conn.execute("SELECT name, skill_id FROM skills"))
+    names = {" ".join(name.casefold().split()) for name in skill_names}
+    catalog = {
+        " ".join(name.casefold().split()): skill_id
+        for name, skill_id in conn.execute("SELECT name, skill_id FROM skills")
+    }
     unknown = names - catalog.keys()
     if unknown:
         raise ValueError(f"Unknown canonical skills: {sorted(unknown)}")

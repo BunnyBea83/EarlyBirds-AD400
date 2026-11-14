@@ -34,6 +34,7 @@ Skip the changelog for typo fixes, formatting or comment-only PRs.
 ### Changed
 
 ### Fixed
+- TA4-42: Normalize capitalization and whitespace when saving canonical skill links. (#5)
 
 ### Removed
 
