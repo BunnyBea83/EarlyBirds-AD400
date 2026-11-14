@@ -1,8 +1,9 @@
 """Extract explicit catalog skill mentions without database side effects."""
 
 import re
+from functools import lru_cache
 
-from birdseye.skills_catalog import SKILLS
+from birdseye.skills_catalog import SKILLS, Skill
 
 
 def _term_pattern(term: str) -> str:
@@ -14,24 +15,26 @@ def _term_pattern(term: str) -> str:
 # Compile once for reuse across thousands of descriptions. Unlike \b, these
 # boundaries also work for terms ending in punctuation, such as C++ and C#.
 # Include + and # in the boundary guard so C+++ and C#sharp do not match.
-_MATCHERS = tuple(
-    (
-        skill.name,
-        re.compile(
-            r"(?<![\w+#])(?:"
-            + "|".join(
-                _term_pattern(term)
-                for term in sorted((skill.name, *skill.aliases), key=len, reverse=True)
-            )
-            + r")(?![\w+#])",
-            re.IGNORECASE,
-        ),
+@lru_cache(maxsize=8)
+def _matchers(catalog: tuple[Skill, ...]):
+    return tuple(
+        (
+            skill.name,
+            re.compile(
+                r"(?<![\w+#])(?:"
+                + "|".join(
+                    _term_pattern(term)
+                    for term in sorted((skill.name, *skill.aliases), key=len, reverse=True)
+                )
+                + r")(?![\w+#])",
+                re.IGNORECASE,
+            ),
+        )
+        for skill in catalog
     )
-    for skill in SKILLS
-)
 
 
-def extract_skills(description: str) -> list[str]:
+def extract_skills(description: str, *, catalog: tuple[Skill, ...] = SKILLS) -> list[str]:
     """Return unique canonical skill names in catalog order.
 
     Matching is case-insensitive and recognizes explicit mentions, including
@@ -40,4 +43,4 @@ def extract_skills(description: str) -> list[str]:
     """
     if not isinstance(description, str):
         raise TypeError("description must be a string")
-    return [name for name, matcher in _MATCHERS if matcher.search(description)]
+    return [name for name, matcher in _matchers(catalog) if matcher.search(description)]

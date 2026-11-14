@@ -47,11 +47,18 @@ def initialize_storage(conn: sqlite3.Connection) -> None:
                 PRIMARY KEY (job_id, skill_id)
             )
         """)
-        conn.executemany(
-            "INSERT INTO skills(name) VALUES (?) ON CONFLICT(name) DO NOTHING",
-            ((skill.name,) for skill in SKILLS),
-        )
         for skill in SKILLS:
+            # A reviewed rename/merge retains the former canonical name as an
+            # alias. Do not recreate that skill on the next initialization.
+            if conn.execute(
+                "SELECT 1 FROM skill_aliases WHERE alias = ?",
+                (" ".join(skill.name.casefold().split()),),
+            ).fetchone():
+                continue
+            conn.execute(
+                "INSERT INTO skills(name, category) VALUES (?, ?) ON CONFLICT(name) DO NOTHING",
+                (skill.name, skill.category),
+            )
             skill_id = conn.execute("SELECT skill_id FROM skills WHERE name = ?", (skill.name,)).fetchone()[0]
             for term in (skill.name, *skill.aliases):
                 alias = " ".join(term.casefold().split())
