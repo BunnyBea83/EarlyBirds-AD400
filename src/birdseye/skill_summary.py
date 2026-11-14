@@ -48,15 +48,27 @@ def summarize(postings, categories, roles=ROLE_RULES):
     return {"roles": result, "unresolved_roles": unresolved}
 
 
+class MissingSkillTables(sqlite3.OperationalError):
+    """The cleaned database still needs skill extraction."""
+
+
 def read_summary(conn):
     """Use the TA4-25 SQLite schema while retaining postings without skills."""
     postings, _ = map_roles(dict(job_id=job_id, title=title)
                             for job_id, title in conn.execute("SELECT job_id, title FROM postings"))
+    tables = {name for (name,) in conn.execute(
+        "SELECT name FROM sqlite_master WHERE type = 'table'"
+    )}
+    if not {"skills", "posting_skills"} <= tables:
+        raise MissingSkillTables("Run skill extraction on the selected database before opening the dashboard.")
     names_by_job = defaultdict(set)
     categories = {}
-    for job_id, name, category in conn.execute("""
+    skill_columns = {column[1] for column in conn.execute("PRAGMA table_info(skills)")}
+    # The extractor uses skill_id. Earlier dashboard databases may use id.
+    skill_key = "skill_id" if "skill_id" in skill_columns else "id"
+    for job_id, name, category in conn.execute(f"""
         SELECT ps.job_id, s.name, s.category
-        FROM posting_skills AS ps JOIN skills AS s ON s.id = ps.skill_id
+        FROM posting_skills AS ps JOIN skills AS s ON s.{skill_key} = ps.skill_id
     """):
         names_by_job[job_id].add(name)
         categories[name] = category

@@ -168,7 +168,19 @@ See [`CONTRIBUTING.md`](CONTRIBUTING.md) for branch naming, Jira references, and
 Exact versions are pinned in `requirements.txt`.
 ## View skill demand
 
-Build the database and run skill extraction, then run `streamlit run app.py`
-from the repository root. Set `BIRDSEYE_DB` to use another database path.
+Reuse your existing `data/processed/birdseye.db` if you already ran cleaning.
+Otherwise run `python scripts/download_data.py` and `python scripts/clean_data.py`.
+Cleaning loads the CSVs into pandas and saves the cleaned postings as the
+SQLite `postings` table. The dashboard reads that table when it starts.
+
+If skill extraction is still needed, run
+`python scripts/extract_skills.py --db /absolute/path/to/birdseye.db` on that
+same file to populate its skill tables. If your checkout does not contain the
+extraction script, run it from a separate checkout of
+`origin/amy-TA4-46-workflow-tests` with that checkout's package installed.
+
+Run `streamlit run app.py`. The dashboard defaults to the database under this
+repository's `data/processed` folder. Set `BIRDSEYE_DB` to point at another
+database. If you rebuild the cleaned database, run extraction again.
 Select **Use synthetic demo data** in the sidebar to try the dashboard without
 downloading data. See [skill counting rules](docs/skill_summary.md).

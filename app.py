@@ -2,11 +2,12 @@
 
 import os
 import sqlite3
+from pathlib import Path
 
 import streamlit as st
 
 from birdseye.charts.top_skills import top_skills_chart
-from birdseye.skill_summary import load_summary, summarize
+from birdseye.skill_summary import MissingSkillTables, load_summary, summarize
 
 
 def demo_summary():
@@ -32,10 +33,21 @@ if demo:
     st.info("Synthetic example for testing. These figures do not describe the job market.")
     summary = demo_summary()
 else:
+    default_database = Path(__file__).resolve().parent / "data/processed/birdseye.db"
+    database = Path(os.environ.get("BIRDSEYE_DB") or default_database).expanduser().resolve()
+    if not database.is_file():
+        st.error(f"Database file not found at {database}. Build it with scripts/clean_data.py "
+                 "or set BIRDSEYE_DB to an existing database.")
+        st.stop()
     try:
-        summary = load_summary(os.environ.get("BIRDSEYE_DB", "data/processed/birdseye.db"))
-    except sqlite3.Error:
-        st.error("Build the cleaned database and run skill extraction, or select synthetic demo data.")
+        summary = load_summary(database)
+    except MissingSkillTables as error:
+        st.error(f"{error} See the README for the extraction command.")
+        st.stop()
+    except sqlite3.Error as error:
+        st.error(f"Could not load the database at {database}. "
+                 "Check that the selected file is a cleaned Birdseye database.")
+        st.code(str(error), language="text")
         st.stop()
 
 roles = summary["roles"]

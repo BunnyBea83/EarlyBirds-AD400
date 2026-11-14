@@ -1,6 +1,8 @@
 import sqlite3
 
-from birdseye.skill_summary import read_summary, summarize
+import pytest
+
+from birdseye.skill_summary import MissingSkillTables, read_summary, summarize
 
 
 def test_counts_deduplicate_rank_and_distinguish_category_denominators():
@@ -24,11 +26,12 @@ def test_counts_deduplicate_rank_and_distinguish_category_denominators():
     assert result["roles"]["Marketing Manager"]["top_skills"] == []
 
 
-def test_database_reader_keeps_empty_postings_and_all_skills_for_heatmap():
+@pytest.mark.parametrize("skill_key", ["skill_id", "id"])
+def test_database_reader_keeps_empty_postings_and_all_skills_for_heatmap(skill_key):
     conn = sqlite3.connect(":memory:")
-    conn.executescript("""
+    conn.executescript(f"""
         CREATE TABLE postings (job_id INTEGER, title TEXT);
-        CREATE TABLE skills (id INTEGER, name TEXT, category TEXT);
+        CREATE TABLE skills ({skill_key} INTEGER PRIMARY KEY, name TEXT, category TEXT);
         CREATE TABLE posting_skills (job_id INTEGER, skill_id INTEGER);
         INSERT INTO postings VALUES (1, 'Data Analyst'), (2, 'Sr. Data Analyst II');
     """)
@@ -40,3 +43,13 @@ def test_database_reader_keeps_empty_postings_and_all_skills_for_heatmap():
     assert len(analyst["top_skills"]) == 15
     assert len(analyst["skills"]) == 21
     assert analyst["skills"][20]["percentage"] == 50
+
+
+def test_cleaned_database_requires_extraction():
+    conn = sqlite3.connect(":memory:")
+    try:
+        conn.execute("CREATE TABLE postings (job_id INTEGER, title TEXT)")
+        with pytest.raises(MissingSkillTables, match="Run skill extraction"):
+            read_summary(conn)
+    finally:
+        conn.close()
