@@ -38,6 +38,7 @@ Skip the changelog for typo fixes, formatting or comment-only PRs.
 
 ### Fixed
 - TA4-37: Show specific extraction error hints for missing or locked databases without suggesting a rebuild for unrelated failures. (#7)
+- TA4-42: Normalize capitalization and whitespace when saving canonical skill links. (#5)
 
 ### Removed
 

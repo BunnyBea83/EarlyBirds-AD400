@@ -51,6 +51,15 @@ def test_reprocessing_replaces_old_matches_and_preserves_other_postings(conn):
     assert matches(conn) == [(2, "SQL")]
 
 
+def test_saves_normalize_case_and_whitespace_without_duplicate_links(conn):
+    for _ in range(2):
+        save_posting_skills(conn, 1, ["python", " PYTHON ", " power\t\n BI "])
+    assert matches(conn) == [(1, "Power BI"), (1, "Python")]
+    with pytest.raises(ValueError, match="Unknown canonical"):
+        save_posting_skills(conn, 1, ["sql", "not a skill"])
+    assert matches(conn) == [(1, "Power BI"), (1, "Python")]
+
+
 def test_unknown_skill_or_posting_does_not_change_existing_links(conn):
     save_posting_skills(conn, 1, ["Python"])
     with pytest.raises(ValueError, match="Unknown canonical"):
