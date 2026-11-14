@@ -30,12 +30,14 @@ Skip the changelog for typo fixes, formatting or comment-only PRs.
 ### Added
 - TA4-44: Add reviewed skill/alias management and confirmed consolidation that preserves posting associations.
 - TA4-40: Extract canonical skill mentions with case, whitespace, alias, and punctuation support.
+- TA4-64: Map job titles to standard roles for skill comparisons. (#9)
 - TA4-45: Cleaning report with step-by-step row counts, missing-value choices, known limitations and a data dictionary (`docs/data/cleaning_report.md`). (#2)
 
 ### Changed
 
 ### Fixed
 - TA4-44: Preserve a skill's category when renaming unless a replacement or explicit None is provided. (#6)
+- TA4-42: Normalize capitalization and whitespace when saving canonical skill links. (#5)
 
 ### Removed
 
