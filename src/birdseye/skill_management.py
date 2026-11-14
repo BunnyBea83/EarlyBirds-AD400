@@ -9,6 +9,8 @@ from contextlib import contextmanager
 
 from birdseye.skills_catalog import Skill
 
+_UNSET = object()
+
 
 def _name(value: str) -> str:
     if not isinstance(value, str) or not value.strip():
@@ -58,14 +60,17 @@ def add_skill(conn: sqlite3.Connection, name: str, *, aliases=(), category=None)
     return skill_id
 
 
-def update_skill(conn: sqlite3.Connection, skill_id: int, *, name: str, category=None) -> None:
-    """Rename/categorize a skill without changing its ID or losing old aliases."""
+def update_skill(conn: sqlite3.Connection, skill_id: int, *, name: str, category=_UNSET) -> None:
+    """Rename a skill; preserve an omitted category, or clear it with None."""
     name = _name(name)
     with _atomic(conn):
         if not conn.execute("SELECT 1 FROM skills WHERE skill_id = ?", (skill_id,)).fetchone():
             raise ValueError(f"Unknown skill_id: {skill_id}")
         _check_aliases(conn, {name.casefold()}, skill_id)
-        conn.execute("UPDATE skills SET name = ?, category = ? WHERE skill_id = ?", (name, category, skill_id))
+        if category is _UNSET:
+            conn.execute("UPDATE skills SET name = ? WHERE skill_id = ?", (name, skill_id))
+        else:
+            conn.execute("UPDATE skills SET name = ?, category = ? WHERE skill_id = ?", (name, category, skill_id))
         conn.execute("INSERT INTO skill_aliases VALUES (?, ?) ON CONFLICT(alias) DO NOTHING", (name.casefold(), skill_id))
 
 

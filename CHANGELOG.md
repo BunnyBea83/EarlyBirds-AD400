@@ -35,6 +35,7 @@ Skip the changelog for typo fixes, formatting or comment-only PRs.
 ### Changed
 
 ### Fixed
+- TA4-44: Preserve a skill's category when renaming unless a replacement or explicit None is provided. (#6)
 
 ### Removed
 
