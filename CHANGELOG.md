@@ -54,6 +54,7 @@ Skip the changelog for typo fixes, formatting or comment-only PRs.
 - TA4-47: Duplicate job IDs, postings with no title or description, and repeated postings (same company, title, description and location) are removed. (#2)
 - TA4-43: Dates are YYYY-MM-DD, salaries have yearly versions, work types and experience levels use one spelling, locations read "City, ST", and ZIP and FIPS codes keep leading zeros. (#2)
 - TA4-49: Each posting includes its company details and industries, with no postings duplicated. (#2)
+- TA4-41: User can add their own skills in one (non-persistent) session.
 
 ### Infrastructure
 - TA4-74: Repository set up with README, contribution guide, changelog, pinned dependencies and a smoke test. (#1)
