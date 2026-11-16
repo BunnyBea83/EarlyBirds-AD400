@@ -5,7 +5,9 @@ from contextlib import closing
 
 import pytest
 
-from birdseye.skill_search import clean_selection, list_skills, normalize_term, search_skills
+from birdseye.skill_search import (
+    clean_selection, list_skills, normalize_term, search_skills, skill_label, skill_synonyms,
+)
 from birdseye.skill_storage import initialize_storage
 from birdseye.skills_catalog import SKILLS
 
@@ -85,6 +87,19 @@ def test_clean_selection_removes_duplicates_and_unknown_ids_in_order():
     assert clean_selection([], valid_ids=[1]) == []
 
 
+def test_synonyms_exclude_the_canonical_name(conn):
+    by_name = {skill.name: skill.skill_id for skill in list_skills(conn)}
+    synonyms = skill_synonyms(conn)
+    assert synonyms[by_name["Microsoft Excel"]] == ["ms excel"]
+    assert synonyms[by_name["React"]] == ["react.js", "reactjs"]
+    assert by_name["Python"] not in synonyms
+
+
+def test_label_includes_synonyms_so_the_picker_can_filter_on_them():
+    assert skill_label("Microsoft Excel", ["ms excel"]) == "Microsoft Excel (ms excel)"
+    assert skill_label("Python") == "Python"
+
+
 # --- Streamlit behaviour (skipped when Streamlit's test runner is unavailable) ---
 
 def _skill_input_app(db_path):
@@ -109,44 +124,62 @@ def app(tmp_path):
     return AppTest.from_function(_skill_input_app, args=(str(path),)), path
 
 
+def skill_ids(path, *wanted):
+    with closing(sqlite3.connect(path)) as check:
+        by_name = {skill.name: skill.skill_id for skill in list_skills(check)}
+    return [by_name[name] for name in wanted]
+
+
 def test_empty_selection_shows_a_prompt(app):
     at, _ = app
     at.run()
     assert not at.exception
     assert [info.value for info in at.info] == ["Select at least one skill to see how you compare."]
+    assert len(at.button) == 0
 
 
-def test_several_skills_can_be_selected_and_the_prompt_goes_away(app):
-    at, path = app
-    with closing(sqlite3.connect(path)) as check:
-        ids = [skill.skill_id for skill in list_skills(check) if skill.name in {"Python", "Microsoft Excel"}]
-    at.session_state["selected_skill_ids"] = ids
+def test_options_include_synonyms_so_typing_one_finds_the_skill(app):
+    at, _ = app
     at.run()
+    assert "Microsoft Excel (ms excel)" in at.selectbox[0].options
+
+
+def test_picking_a_skill_adds_it_as_a_separate_item_and_resets_the_box(app):
+    at, path = app
+    at.run()
+    at.selectbox[0].select("Microsoft Excel (ms excel)").run()
     assert not at.exception
+    assert at.session_state["selected_skill_ids"] == skill_ids(path, "Microsoft Excel")
+    assert at.selectbox[0].value is None
+    assert "Microsoft Excel (ms excel)" not in at.selectbox[0].options  # no duplicates
     assert list(at.info) == []
-    assert at.multiselect[0].value == ids
+    assert [button.label for button in at.button] == ["Microsoft Excel"]
 
 
-def test_removing_one_selected_skill_keeps_the_others(app):
+def test_several_skills_can_be_added(app):
     at, path = app
-    with closing(sqlite3.connect(path)) as check:
-        ids = [skill.skill_id for skill in list_skills(check)][:3]
-    at.session_state["selected_skill_ids"] = ids
     at.run()
-    at.session_state["selected_skill_ids"] = ids[:1] + ids[2:]
-    at.run()
-    assert at.multiselect[0].value == ids[:1] + ids[2:]
-    at.session_state["selected_skill_ids"] = []
-    at.run()
-    assert len(at.info) == 1
+    at.selectbox[0].select("Python").run()
+    at.selectbox[0].select("Docker").run()
+    assert at.session_state["selected_skill_ids"] == skill_ids(path, "Python", "Docker")
+    assert [button.label for button in at.button] == ["Docker", "Python"]  # alphabetical
 
 
-def test_selection_survives_searching_for_something_else(app):
+def test_clicking_a_skill_removes_only_that_skill(app):
     at, path = app
-    with closing(sqlite3.connect(path)) as check:
-        python_id = next(s.skill_id for s in list_skills(check) if s.name == "Python")
+    python_id, docker_id, git_id = skill_ids(path, "Python", "Docker", "Git")
+    at.session_state["selected_skill_ids"] = [python_id, docker_id, git_id]
+    at.run()
+    at.button(key=f"remove_skill_{docker_id}").click().run()
+    assert at.session_state["selected_skill_ids"] == [python_id, git_id]
+    assert "Docker" in at.selectbox[0].options  # can be added again
+
+
+def test_removing_the_last_skill_brings_back_the_prompt(app):
+    at, path = app
+    (python_id,) = skill_ids(path, "Python")
     at.session_state["selected_skill_ids"] = [python_id]
     at.run()
-    at.text_input[0].set_value("MS Excel").run()
-    assert not at.exception
-    assert at.multiselect[0].value == [python_id]
+    assert list(at.info) == []
+    at.button(key=f"remove_skill_{python_id}").click().run()
+    assert len(at.info) == 1

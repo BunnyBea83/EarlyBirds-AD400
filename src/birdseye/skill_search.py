@@ -60,6 +60,36 @@ def search_skills(conn: sqlite3.Connection, query: str) -> list[SkillOption]:
     return [SkillOption(skill_id, name) for skill_id, name in rows]
 
 
+def skill_synonyms(conn: sqlite3.Connection) -> dict[int, list[str]]:
+    """Map each skill ID to its alternate names, alphabetically.
+
+    The canonical name itself is left out, so a skill with no synonyms has no
+    entry. Aliases are stored normalized (lowercase).
+    """
+    synonyms: dict[int, list[str]] = {}
+    rows = conn.execute(
+        """
+        SELECT a.skill_id, a.alias, s.name
+        FROM skill_aliases a JOIN skills s ON s.skill_id = a.skill_id
+        ORDER BY a.alias
+        """
+    )
+    for skill_id, alias, name in rows:
+        if alias != normalize_term(name):
+            synonyms.setdefault(skill_id, []).append(alias)
+    return synonyms
+
+
+def skill_label(name: str, synonyms: Iterable[str] = ()) -> str:
+    """Text shown for a skill in the picker, e.g. 'Microsoft Excel (ms excel)'.
+
+    Including the synonyms lets the picker's built-in filtering find a skill by
+    any of its names while the user types.
+    """
+    synonyms = list(synonyms)
+    return f"{name} ({', '.join(synonyms)})" if synonyms else name
+
+
 def clean_selection(selected: Iterable[int], valid_ids: Iterable[int]) -> list[int]:
     """Drop duplicate and unknown skill IDs, keeping the original order."""
     valid = set(valid_ids)
