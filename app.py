@@ -14,6 +14,7 @@ from birdseye.role_profiles import MAX_PROFILE_SKILLS, MissingRoleProfiles, load
 from birdseye.role_selector import ALL_POSTINGS, render_role_dropdown
 from birdseye.skill_ranking import combine_roles, load_top_skills
 from birdseye.skill_summary import MissingSkillTables, load_summary, summarize
+from birdseye.role_comparison_view import render_role_comparison
 
 
 
@@ -112,6 +113,10 @@ else:
 st.header("Compare skill demand across roles")
 with st.container(horizontal=True):
     st.plotly_chart(skill_heatmap(roles), width="content", key="skill-heatmap")
+
+# --- TA4-59: Compare two roles side by side (TA4-60 dropdowns, TA4-61 grouping) ---
+st.header("Compare two roles")
+render_role_comparison(roles)
 
 
 

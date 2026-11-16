@@ -5,7 +5,7 @@ from contextlib import closing
 
 import pytest
 
-from birdseye.role_comparison import TOP_SKILLS, compare_roles
+from birdseye.role_comparison import TOP_SKILLS, compare_roles, role_choices
 from birdseye.skill_storage import initialize_storage, save_posting_skills
 from birdseye.skill_summary import load_summary
 
@@ -127,3 +127,27 @@ def test_roles_without_postings_compare_without_dividing_by_zero():
     result = compare_roles("A", "B", {"A": empty, "B": empty})
     assert result["shared"] == result["only_a"] == result["only_b"] == []
     assert (result["total_a"], result["total_b"]) == (0, 0)
+
+
+# --- Role dropdown choices (TA4-60) ---
+
+def test_dropdown_lists_every_role_alphabetically_ignoring_case():
+    roles = ["Software Engineer", "data Analyst", "Data Scientist", "Registered Nurse"]
+    assert role_choices(roles) == ["data Analyst", "Data Scientist", "Registered Nurse", "Software Engineer"]
+
+
+def test_the_other_dropdowns_role_is_left_out():
+    roles = ["Data Analyst", "Data Scientist", "Registered Nurse"]
+    assert role_choices(roles, exclude="Data Scientist") == ["Data Analyst", "Registered Nurse"]
+    assert role_choices(roles, exclude=None) == sorted(roles)
+    assert role_choices(roles, exclude="Not a role") == sorted(roles)
+
+
+def test_each_role_is_listed_once():
+    assert role_choices(["A", "B", "A"]) == ["A", "B"]
+
+
+def test_dropdowns_use_the_summary_role_list(database):
+    roles = load_summary(database)["roles"]
+    assert role_choices(roles) == sorted(roles)  # every ROLE_RULES role, alphabetical
+    assert len(role_choices(roles)) == 7

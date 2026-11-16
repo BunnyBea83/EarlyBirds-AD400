@@ -5,9 +5,19 @@ every skill's posting count and each role's total postings. No Streamlit and no
 database access, so it can be tested directly.
 """
 
-from collections.abc import Mapping
+from collections.abc import Iterable, Mapping
 
 TOP_SKILLS = 20
+
+
+def role_choices(role_names: Iterable[str], exclude: str | None = None) -> list[str]:
+    """Roles a person can pick in one comparison dropdown, alphabetically.
+
+    Each role appears once, ignoring letter case when sorting. The role chosen in the
+    other dropdown is left out, so the same role can't be picked twice.
+    """
+    return sorted({name for name in role_names if name != exclude},
+                  key=lambda name: (name.casefold(), name))
 
 
 def _share(count: int, total: int) -> float:
