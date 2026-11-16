@@ -32,6 +32,9 @@ Skip the changelog for typo fixes, formatting or comment-only PRs.
 - TA4-37: Process cleaned postings in chunks with record validation, warning logs, stored catalog matching, and structured outcomes.
 - TA4-44: Add reviewed skill/alias management and confirmed consolidation that preserves posting associations.
 - TA4-40: Extract canonical skill mentions with case, whitespace, alias, and punctuation support.
+- TA4-67: Compare demand for the top 20 skills across roles in a heatmap. (#12)
+- TA4-66: Show the top requested skills by role as horizontal bars. (#11)
+- TA4-65: Report ranked skills and category totals by role. (#10)
 - TA4-64: Map job titles to standard roles for skill comparisons. (#9)
 - TA4-45: Cleaning report with step-by-step row counts, missing-value choices, known limitations and a data dictionary (`docs/data/cleaning_report.md`). (#2)
 
