@@ -9,6 +9,7 @@ import streamlit as st
 from birdseye.charts.heatmap import skill_heatmap
 from birdseye.charts.top_skills import top_skills_chart
 from birdseye.skill_summary import MissingSkillTables, load_summary, summarize
+from birdseye.skill_ranking import combine_roles, load_top_skills
 
 
 def demo_summary():
@@ -59,6 +60,17 @@ st.header("Top skills by role")
 for role, row in roles.items():
     st.plotly_chart(top_skills_chart(role, row), key=f"top-{role}")
 st.caption("A posting can mention several skills, so these percentages can add up to more than 100%.")
+
+st.header("Most requested skills")
+overall = combine_roles(roles) if demo else load_top_skills(database)
+choice = st.selectbox("Show skills requested for", ["All postings", *roles])
+chosen = overall if choice == "All postings" else roles[choice]
+st.plotly_chart(top_skills_chart(choice, chosen), key="most-requested")
+st.caption(
+    f"Based on {chosen['total_postings']:,} postings. Each bar shows the percentage of "
+    "job postings that mention the skill. A posting can mention several skills, so the "
+    "percentages can add up to more than 100%."
+)
 
 st.header("Compare skill demand across roles")
 with st.container(horizontal=True):
