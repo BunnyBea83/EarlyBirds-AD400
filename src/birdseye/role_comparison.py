@@ -75,3 +75,24 @@ def compare_roles(
         "only_a": ordered(top_a - top_b, "share_a"),
         "only_b": ordered(top_b - top_a, "share_b"),
     }
+
+
+def comparison_rows(result: Mapping) -> list[dict]:
+    """Flatten compare_roles() output into table rows for the side-by-side view (TA4-62).
+
+    Each row has a "Group" ("Shared", "Unique to <role A>" or "Unique to <role B>"), the
+    "Skill", and one column per role, named after the role, holding that skill's share
+    (percent) of the role's own postings. Shared skills come first, then role A's unique
+    skills, then role B's, each already sorted from most to least in demand.
+    """
+    role_a, role_b = result["role_a"], result["role_b"]
+    groups = (
+        ("Shared", result["shared"]),
+        (f"Unique to {role_a}", result["only_a"]),
+        (f"Unique to {role_b}", result["only_b"]),
+    )
+    return [
+        {"Group": label, "Skill": row["skill"], role_a: row["share_a"], role_b: row["share_b"]}
+        for label, rows in groups
+        for row in rows
+    ]
