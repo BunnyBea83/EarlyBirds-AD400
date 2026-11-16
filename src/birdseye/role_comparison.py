@@ -5,6 +5,7 @@ every skill's posting count and each role's total postings. No Streamlit and no
 database access, so it can be tested directly.
 """
 
+import math
 from collections.abc import Iterable, Mapping
 
 TOP_SKILLS = 20
@@ -96,3 +97,92 @@ def comparison_rows(result: Mapping) -> list[dict]:
         for label, rows in groups
         for row in rows
     ]
+
+
+# --- Plain-language summary paragraph (TA4-63) ---
+
+MANY_SHARED = 8  # at or above this many shared skills (40% of the top 20), the roles "overlap quite a bit"
+SOME_SHARED = 4  # below this many, they "have little in common"
+
+
+def _percent(share: float) -> str:
+    """A share as a whole-number percentage, with "less than 1%" for tiny nonzero values."""
+    if 0 < share < 0.5:
+        return "less than 1%"
+    return f"{math.floor(share + 0.5)}%"
+
+
+def _unique_sentence(role: str, other: str, rows: list[dict], key: str, also: bool) -> str:
+    """One sentence about the skills that stand out for `role` but not for `other`."""
+    if not rows:
+        return (f"Every one of the top skills for {role} is also requested for {other}, "
+                f"so {role} would be an easier move from {other}.")
+    named = f"{rows[0]['skill']} ({_percent(rows[0][key])} of {role} postings)"
+    if len(rows) > 1:
+        named += f" and {rows[1]['skill']} ({_percent(rows[1][key])})"
+    lead = "also stand out" if also else "stand out"
+    verb = "are" if len(rows) > 1 else "is"
+    return f"{role} postings {lead} for {named}, which {verb} not among the top {TOP_SKILLS} for {other}."
+
+
+def describe_comparison(result: Mapping) -> str:
+    """Write a short plain-language paragraph about what compare_roles() found (TA4-63).
+
+    It follows a sentence template: how much the roles overlap, up to two shared skills,
+    up to two skills that stand out for each role (each with its share of that role's
+    postings, as whole-number percentages), and a takeaway that does not assume which
+    role the reader is coming from. When there are fewer than two skills to name, it
+    names what exists. A role with no skills found gets one explanatory sentence instead.
+    """
+    role_a, role_b = result["role_a"], result["role_b"]
+    shared, only_a, only_b = result["shared"], result["only_a"], result["only_b"]
+    missing = [role for role, rows in ((role_a, shared + only_a), (role_b, shared + only_b)) if not rows]
+    if len(missing) == 2:
+        return f"We didn't find any skills in the {role_a} or {role_b} postings yet, so a comparison isn't possible."
+    if missing:
+        other = role_b if missing[0] == role_a else role_a
+        return f"We didn't find any skills in the {missing[0]} postings yet, so a comparison with {other} isn't possible."
+
+    count = len(shared)
+    named = f"{shared[0]['skill']} (mentioned in {_percent(shared[0]['share_a'])} of {role_a} postings " \
+            f"and {_percent(shared[0]['share_b'])} of {role_b} postings)" if shared else ""
+    if count == 1:
+        shared_sentence = f"Both roles ask for {named}."
+    elif count > 1:
+        second = f"{shared[1]['skill']} ({_percent(shared[1]['share_a'])} and {_percent(shared[1]['share_b'])})"
+        shared_sentence = f"Both roles frequently ask for {named} and {second}."
+
+    if not only_a and not only_b:
+        return " ".join([
+            f"{role_a} and {role_b} job postings ask for the same most requested skills.",
+            shared_sentence,
+            "If you are switching between these roles, the shared skills above are the ones to learn first.",
+        ])
+
+    sentences = []
+    if count == 0:
+        sentences.append(f"These two roles have no skills in common among the {TOP_SKILLS} most requested "
+                         "for each, so switching between them means learning mostly new ones.")
+    else:
+        if count >= SOME_SHARED:
+            overlap = "overlap quite a bit" if count >= MANY_SHARED else "have some skills in common"
+            sentences.append(f"{role_a} and {role_b} job postings {overlap}: {count} of the {TOP_SKILLS} "
+                             "skills most often requested for each role are the same.")
+        else:
+            verb = "is" if count == 1 else "are"
+            sentences.append(f"{role_a} and {role_b} job postings have little in common: only {count} of the "
+                             f"{TOP_SKILLS} skills most often requested for each role {verb} the same.")
+        sentences.append(shared_sentence)
+
+    sentences.append(_unique_sentence(role_a, role_b, only_a, "share_a", also=count >= 2))
+    sentences.append(_unique_sentence(role_b, role_a, only_b, "share_b", also=False))
+    picks = " or ".join(f"{rows[0]['skill']} for {role}"
+                        for role, rows in ((role_a, only_a), (role_b, only_b)) if rows)
+    if count >= SOME_SHARED:
+        sentences.append("If you are switching between these roles, the shared skills are the safest place to "
+                         f"start, and after that the most requested skill unique to the role you want, such as {picks}, "
+                         "is a good next one to learn.")
+    else:
+        sentences.append("If you are switching between these roles, expect to learn mostly new skills, "
+                         f"starting with the most requested one for the role you want: {picks}.")
+    return " ".join(sentences)

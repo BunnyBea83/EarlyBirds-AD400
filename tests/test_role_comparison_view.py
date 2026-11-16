@@ -67,7 +67,7 @@ def test_the_table_has_a_column_per_role_with_grouped_rows(app):
 def test_each_roles_posting_count_is_shown_above_the_table(app):
     app.selectbox[0].select("Data Analyst").run()
     app.selectbox[1].select("Project Manager").run()
-    counts = [m.value for m in app.markdown if "postings" in m.value]
+    counts = [m.value for m in app.markdown if m.value.startswith("**")]
     assert counts == ["**Data Analyst:** 2 postings · **Project Manager:** 3 postings"]
 
 
@@ -94,3 +94,16 @@ def test_roles_without_any_skills_show_a_message_instead_of_a_table(app):
     assert [info.value for info in app.info] == [
         "No skills were found in the postings for these roles, so there is nothing to compare yet."
     ]
+
+
+def test_a_plain_language_paragraph_comes_before_the_counts_and_table_and_follows_the_roles(app):
+    from birdseye.role_comparison import compare_roles, describe_comparison
+
+    app.selectbox[0].select("Data Analyst").run()
+    app.selectbox[1].select("Data Scientist").run()
+    texts = [m.value for m in app.markdown]
+    paragraph = describe_comparison(compare_roles("Data Analyst", "Data Scientist", ROLES))
+    assert paragraph in texts
+    assert texts.index(paragraph) < texts.index("**Data Analyst:** 2 postings \u00b7 **Data Scientist:** 2 postings")
+    app.selectbox[1].select("Marketing Manager").run()
+    assert describe_comparison(compare_roles("Data Analyst", "Marketing Manager", ROLES)) in [m.value for m in app.markdown]
