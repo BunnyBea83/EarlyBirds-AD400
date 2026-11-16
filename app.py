@@ -9,6 +9,7 @@ import streamlit as st
 from birdseye.charts.heatmap import skill_heatmap
 from birdseye.charts.top_skills import top_skills_chart
 from birdseye.skill_summary import MissingSkillTables, load_summary, summarize
+from birdseye.role_comparison_view import render_role_comparison
 
 
 def demo_summary():
@@ -63,3 +64,7 @@ st.caption("A posting can mention several skills, so these percentages can add u
 st.header("Compare skill demand across roles")
 with st.container(horizontal=True):
     st.plotly_chart(skill_heatmap(roles), width="content", key="skill-heatmap")
+
+# --- TA4-59: Compare two roles side by side (TA4-60 dropdowns, TA4-61 grouping) ---
+st.header("Compare two roles")
+render_role_comparison(roles)
