@@ -16,6 +16,7 @@ def build_database(path, postings, links):
     with closing(sqlite3.connect(path)) as conn:
         conn.execute("CREATE TABLE postings(job_id INTEGER, title TEXT, description TEXT)")
         conn.executemany("INSERT INTO postings(job_id, title) VALUES (?, ?)", postings)
+        conn.commit()  # initialize_storage refuses to run inside an open transaction
         initialize_storage(conn)
         for job_id, names in links.items():
             save_posting_skills(conn, job_id, names)
