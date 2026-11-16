@@ -10,6 +10,7 @@ from contextlib import closing
 from birdseye.skill_input import render_skill_input
 from birdseye.charts.heatmap import skill_heatmap
 from birdseye.charts.top_skills import top_skills_chart
+from birdseye.role_profiles import MAX_PROFILE_SKILLS, MissingRoleProfiles, load_role_profile
 from birdseye.role_selector import ALL_POSTINGS, render_role_dropdown
 from birdseye.skill_ranking import combine_roles, load_top_skills
 from birdseye.skill_summary import MissingSkillTables, load_summary, summarize
@@ -85,13 +86,31 @@ st.caption(
 )
 
 # --- TA4-52: Role dropdown (shares its list and behavior with TA4-54) ---
-st.header("Choose a role")
+# --- TA4-51: The selected role's stored skill profile (up to 20 skills) ---
+st.header("Role skill profile")
 target_role = render_role_dropdown(roles, key="target-role")  # None until a role is picked
+if target_role is None:
+    st.info(f"Choose a role to see its top {MAX_PROFILE_SKILLS} skills.")
+else:
+    profile = None
+    if demo:
+        profile = roles[target_role]["skills"][:MAX_PROFILE_SKILLS]  # the demo has no database table
+    else:
+        try:
+            profile = load_role_profile(database, target_role)
+        except MissingRoleProfiles as error:
+            st.warning(str(error))
+    if profile is not None:
+        st.plotly_chart(
+            top_skills_chart(target_role, {
+                "total_postings": roles[target_role]["total_postings"], "top_skills": profile,
+            }),
+            key="role-profile",
+        )
 
 # --- TA4-67: Compare skill demand across roles in a heatmap ---
 st.header("Compare skill demand across roles")
 with st.container(horizontal=True):
-<<<<<<< HEAD
     st.plotly_chart(skill_heatmap(roles), width="content", key="skill-heatmap")
 
 
@@ -105,6 +124,4 @@ else:
     except sqlite3.Error as error:
         st.error("Could not load skills from the database. Check that it was built with the skill catalog.")
         st.code(str(error), language="text")
-=======
     st.plotly_chart(skill_heatmap(roles), width="content", key="skill-heatmap")
->>>>>>> 742c2d0 (ta4-52 can choose a role)
