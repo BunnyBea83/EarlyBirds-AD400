@@ -5,7 +5,7 @@ from contextlib import closing
 
 import pytest
 
-from birdseye.role_comparison import TOP_SKILLS, compare_roles, role_choices
+from birdseye.role_comparison import TOP_SKILLS, compare_roles, comparison_rows, role_choices
 from birdseye.skill_storage import initialize_storage, save_posting_skills
 from birdseye.skill_summary import load_summary
 
@@ -151,3 +151,41 @@ def test_dropdowns_use_the_summary_role_list(database):
     roles = load_summary(database)["roles"]
     assert role_choices(roles) == sorted(roles)  # every ROLE_RULES role, alphabetical
     assert len(role_choices(roles)) == 7
+
+
+# --- Side-by-side table rows (TA4-62) ---
+
+def test_table_has_a_column_per_role_named_after_the_role(database):
+    rows = comparison_rows(compare(database))
+    assert list(rows[0]) == ["Group", "Skill", "Data Analyst", "Data Scientist"]
+    assert all(list(row) == list(rows[0]) for row in rows)
+
+
+def test_rows_are_grouped_shared_first_then_each_roles_unique_skills(database):
+    rows = comparison_rows(compare(database))
+    assert [(row["Group"], row["Skill"]) for row in rows] == [
+        ("Shared", "Python"), ("Shared", "SQL"),
+        ("Unique to Data Analyst", "Microsoft Excel"), ("Unique to Data Analyst", "Tableau"),
+        ("Unique to Data Scientist", "Machine Learning"), ("Unique to Data Scientist", "PyTorch"),
+    ]
+
+
+def test_table_shows_each_skills_share_of_each_roles_own_postings(database):
+    by_skill = {row["Skill"]: row for row in comparison_rows(compare(database))}
+    assert (by_skill["Python"]["Data Analyst"], by_skill["Python"]["Data Scientist"]) == (50.0, 100.0)
+    assert (by_skill["SQL"]["Data Analyst"], by_skill["SQL"]["Data Scientist"]) == (75.0, 50.0)
+    assert (by_skill["Tableau"]["Data Analyst"], by_skill["Tableau"]["Data Scientist"]) == (25.0, 0.0)
+    assert (by_skill["PyTorch"]["Data Analyst"], by_skill["PyTorch"]["Data Scientist"]) == (0.0, 50.0)
+
+
+def test_each_group_runs_from_most_to_least_in_demand(database):
+    rows = comparison_rows(compare(database))
+    scientist_only = [row["Data Scientist"] for row in rows if row["Group"] == "Unique to Data Scientist"]
+    assert scientist_only == sorted(scientist_only, reverse=True) == [100.0, 50.0]
+
+
+def test_a_group_with_no_skills_has_no_rows():
+    one_sided = {"A": {"total_postings": 1, "skills": [{"skill": "SQL", "posting_count": 1}]},
+                 "B": {"total_postings": 1, "skills": []}}
+    rows = comparison_rows(compare_roles("A", "B", one_sided))
+    assert [(row["Group"], row["Skill"]) for row in rows] == [("Unique to A", "SQL")]

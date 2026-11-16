@@ -7,7 +7,7 @@ from collections.abc import Iterable, Mapping
 
 import streamlit as st
 
-from birdseye.role_comparison import compare_roles, role_choices
+from birdseye.role_comparison import TOP_SKILLS, compare_roles, comparison_rows, role_choices
 
 KEY_A = "compare-role-a"
 KEY_B = "compare-role-b"
@@ -39,17 +39,37 @@ def render_role_pickers(
 
 
 def render_role_comparison(roles: Mapping[str, dict]) -> None:
-    """Pick two roles and show how their top skills compare.
+    """Pick two roles and show their top skills side by side.
 
-    Changing either dropdown reruns the comparison. For now the result is a one-line
-    count; TA4-62 replaces it with the side-by-side table and TA4-63 adds the paragraph.
+    Changing either dropdown reruns the comparison. TA4-63 adds the written summary.
     """
     role_a, role_b = render_role_pickers(roles)
     if role_a is None or role_b is None:
         st.info("Choose two roles to compare their skills.")
         return
     result = compare_roles(role_a, role_b, roles)
+    st.markdown(
+        f"**{role_a}:** {result['total_a']:,} postings \u00b7 "
+        f"**{role_b}:** {result['total_b']:,} postings"
+    )
+    rows = comparison_rows(result)
+    if not rows:
+        st.info("No skills were found in the postings for these roles, so there is nothing to compare yet.")
+        return
+    st.dataframe(
+        rows,
+        hide_index=True,
+        width="stretch",
+        column_config={
+            role: st.column_config.NumberColumn(
+                format="%.1f%%", help=f"Percent of {role} postings that mention the skill"
+            )
+            for role in (role_a, role_b)
+        },
+    )
     st.caption(
-        f"Shared skills: {len(result['shared'])}. Only in {role_a}: {len(result['only_a'])}. "
-        f"Only in {role_b}: {len(result['only_b'])}."
+        f"Each number is the percentage of that role's own postings that mention the skill. "
+        f"Skills are grouped by whether they are among the top {TOP_SKILLS} for both roles or "
+        "just one. A skill listed as unique to one role can still appear in the other role's "
+        "postings, just less often. Within each group, skills are listed from most to least in demand."
     )

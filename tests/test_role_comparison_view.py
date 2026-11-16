@@ -1,4 +1,4 @@
-"""Role comparison dropdown behaviour (TA4-60). Skipped when Streamlit's test runner is unavailable."""
+"""Role comparison dropdown and table behaviour (TA4-60, TA4-62). Skipped when Streamlit's test runner is unavailable."""
 
 import pytest
 
@@ -8,7 +8,10 @@ ROLES = {
     "Data Scientist": {"total_postings": 2, "skills": [
         {"skill": "Python", "posting_count": 2}, {"skill": "Machine Learning", "posting_count": 1}]},
     "Marketing Manager": {"total_postings": 1, "skills": [{"skill": "Writing", "posting_count": 1}]},
+    "Project Manager": {"total_postings": 3, "skills": []},
+    "Registered Nurse": {"total_postings": 1, "skills": []},
 }
+ALL_ROLES = sorted(ROLES)
 
 
 def _comparison_app(roles):
@@ -25,31 +28,69 @@ def app():
     return AppTest.from_function(_comparison_app, args=(ROLES,)).run()
 
 
+def table(app):
+    frame = app.dataframe[0].value
+    return list(frame.columns), frame.values.tolist()
+
+
 def test_both_dropdowns_list_every_role_alphabetically_at_first(app):
     assert not app.exception
-    expected = ["Data Analyst", "Data Scientist", "Marketing Manager"]
-    assert list(app.selectbox[0].options) == expected
-    assert list(app.selectbox[1].options) == expected
+    assert list(app.selectbox[0].options) == ALL_ROLES
+    assert list(app.selectbox[1].options) == ALL_ROLES
     assert app.selectbox[0].value is None and app.selectbox[1].value is None
     assert [info.value for info in app.info] == ["Choose two roles to compare their skills."]
+    assert len(app.dataframe) == 0
 
 
 def test_a_role_chosen_in_one_dropdown_cannot_be_chosen_in_the_other(app):
     app.selectbox[0].select("Data Analyst").run()
-    assert "Data Analyst" not in app.selectbox[1].options
-    assert list(app.selectbox[1].options) == ["Data Scientist", "Marketing Manager"]
+    assert list(app.selectbox[1].options) == [role for role in ALL_ROLES if role != "Data Analyst"]
     app.selectbox[1].select("Marketing Manager").run()
     assert "Marketing Manager" not in app.selectbox[0].options
     assert app.selectbox[0].value == "Data Analyst"  # the first choice survives the second
 
 
-def test_changing_either_role_updates_the_comparison(app):
+def test_the_table_has_a_column_per_role_with_grouped_rows(app):
     app.selectbox[0].select("Data Analyst").run()
     app.selectbox[1].select("Data Scientist").run()
     assert not app.exception
     assert list(app.info) == []
-    assert app.caption[0].value == "Shared skills: 1. Only in Data Analyst: 1. Only in Data Scientist: 1."
+    columns, rows = table(app)
+    assert columns == ["Group", "Skill", "Data Analyst", "Data Scientist"]
+    assert rows == [
+        ["Shared", "Python", 50.0, 100.0],
+        ["Unique to Data Analyst", "SQL", 100.0, 0.0],
+        ["Unique to Data Scientist", "Machine Learning", 0.0, 50.0],
+    ]
+
+
+def test_each_roles_posting_count_is_shown_above_the_table(app):
+    app.selectbox[0].select("Data Analyst").run()
+    app.selectbox[1].select("Project Manager").run()
+    counts = [m.value for m in app.markdown if "postings" in m.value]
+    assert counts == ["**Data Analyst:** 2 postings · **Project Manager:** 3 postings"]
+
+
+def test_changing_either_role_updates_the_table(app):
+    app.selectbox[0].select("Data Analyst").run()
+    app.selectbox[1].select("Data Scientist").run()
     app.selectbox[1].select("Marketing Manager").run()
-    assert app.caption[0].value == "Shared skills: 0. Only in Data Analyst: 2. Only in Marketing Manager: 1."
+    columns, rows = table(app)
+    assert columns == ["Group", "Skill", "Data Analyst", "Marketing Manager"]
+    assert rows == [
+        ["Unique to Data Analyst", "SQL", 100.0, 0.0],
+        ["Unique to Data Analyst", "Python", 50.0, 0.0],
+        ["Unique to Marketing Manager", "Writing", 0.0, 100.0],
+    ]
     app.selectbox[0].select("Data Scientist").run()
-    assert app.caption[0].value == "Shared skills: 0. Only in Data Scientist: 2. Only in Marketing Manager: 1."
+    assert table(app)[0] == ["Group", "Skill", "Data Scientist", "Marketing Manager"]
+
+
+def test_roles_without_any_skills_show_a_message_instead_of_a_table(app):
+    app.selectbox[0].select("Project Manager").run()
+    app.selectbox[1].select("Registered Nurse").run()
+    assert not app.exception
+    assert len(app.dataframe) == 0
+    assert [info.value for info in app.info] == [
+        "No skills were found in the postings for these roles, so there is nothing to compare yet."
+    ]
