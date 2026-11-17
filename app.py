@@ -5,11 +5,15 @@ import sqlite3
 from pathlib import Path
 
 import streamlit as st
+from contextlib import closing
 
+from birdseye.skill_input import render_skill_input
 from birdseye.charts.heatmap import skill_heatmap
 from birdseye.charts.top_skills import top_skills_chart
 from birdseye.skill_summary import MissingSkillTables, load_summary, summarize
 from birdseye.skill_ranking import combine_roles, load_top_skills
+
+
 
 
 def demo_summary():
@@ -31,6 +35,7 @@ def demo_summary():
 st.set_page_config(page_title="Birdseye View", layout="wide")
 st.title("Birdseye View")
 demo = st.sidebar.checkbox("Use synthetic demo data")
+database = None  # only set to a real path when not in demo mode
 if demo:
     st.info("Synthetic example for testing. These figures do not describe the job market.")
     summary = demo_summary()
@@ -75,3 +80,15 @@ st.caption(
 st.header("Compare skill demand across roles")
 with st.container(horizontal=True):
     st.plotly_chart(skill_heatmap(roles), width="content", key="skill-heatmap")
+
+
+
+if database is None:
+    st.caption("Skill selection uses the real database. Turn off the synthetic demo data to use it.")
+else:
+    try:
+        with closing(sqlite3.connect(database)) as conn:
+            selected_skill_ids = render_skill_input(conn)
+    except sqlite3.Error as error:
+        st.error("Could not load skills from the database. Check that it was built with the skill catalog.")
+        st.code(str(error), language="text")

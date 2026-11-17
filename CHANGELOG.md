@@ -28,6 +28,7 @@ Skip the changelog for typo fixes, formatting or comment-only PRs.
 ## [Unreleased]
 
 ### Added
+- TA4-41: Added a skill picker: alphabetical, duplicate-free skill list with live, synonym-aware search multi-select with per-skill removal.
 - TA4-54: The dashboard now shows the 15 most requested skills across all postings, with each skill’s share of postings, and lets you filter the list by role.
 - TA4-46: Verify raw-to-cleaned-to-skills processing, catalog consolidation, record errors, reruns, and database rebuilds with isolated functional tests.
 - TA4-37: Process cleaned postings in chunks with record validation, warning logs, stored catalog matching, and structured outcomes.
@@ -55,6 +56,7 @@ Skip the changelog for typo fixes, formatting or comment-only PRs.
 - TA4-47: Duplicate job IDs, postings with no title or description, and repeated postings (same company, title, description and location) are removed. (#2)
 - TA4-43: Dates are YYYY-MM-DD, salaries have yearly versions, work types and experience levels use one spelling, locations read "City, ST", and ZIP and FIPS codes keep leading zeros. (#2)
 - TA4-49: Each posting includes its company details and industries, with no postings duplicated. (#2)
+- TA4-41: User can add their own skills in one (non-persistent) session.
 
 ### Infrastructure
 - TA4-74: Repository set up with README, contribution guide, changelog, pinned dependencies and a smoke test. (#1)
