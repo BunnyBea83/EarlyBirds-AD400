@@ -7,9 +7,12 @@ from pathlib import Path
 
 import pytest
 
+import birdseye.role_profiles as role_profiles_module
 from birdseye.role_profiles import (
-    MAX_PROFILE_SKILLS, MissingRoleProfiles, build_role_profiles, load_role_profile, profile_rows,
+    MAX_PROFILE_SKILLS, MissingRoleProfiles, StaleRoleProfiles, build_role_profiles,
+    load_role_profile, profile_rows, profiles_are_current,
 )
+from birdseye.roles import ROLE_RULES
 from birdseye.skill_storage import initialize_storage, save_posting_skills
 from birdseye.skills_catalog import SKILLS
 
@@ -133,6 +136,124 @@ def test_profile_rows_keep_the_top_skills_in_ranked_order():
               (("SQL", 90.0), ("Git", 50.0), ("Docker", 10.0))]
     roles = {"A": {"skills": ranked}, "B": {"skills": []}}
     assert profile_rows(roles, size=2) == [("A", "SQL", 90.0), ("A", "Git", 50.0)]
+
+
+def change(path, sql, params=()):
+    """Change the database the way cleaning, extraction or a catalog edit would."""
+    with closing(sqlite3.connect(path)) as conn:
+        with conn:
+            conn.execute(sql, params)
+
+
+def is_current(path):
+    with closing(sqlite3.connect(path)) as conn:
+        return profiles_are_current(conn)
+
+
+def test_profiles_are_current_right_after_a_build(database):
+    build(database)
+    assert is_current(database)
+    assert load_role_profile(database, "Registered Nurse") == [{"skill": "Communication", "percentage": 100.0}]
+
+
+def test_clearing_the_skill_links_makes_the_stored_profiles_stale(database):
+    # The reported bug: cleaning cleared the links, but the profile still showed 100%.
+    build(database)
+    assert stored(database)["Registered Nurse"] == {"Communication": 100.0}
+    change(database, "DELETE FROM posting_skills")
+    assert stored(database)["Registered Nurse"] == {"Communication": 100.0}  # the old rows are still there
+    with pytest.raises(StaleRoleProfiles, match="out of date") as error:
+        load_role_profile(database, "Registered Nurse")
+    assert "build_role_profiles.py --db data/processed/birdseye.db" in str(error.value)
+    assert not is_current(database)
+
+
+def test_rebuilding_after_the_data_changed_clears_the_stale_profile(database):
+    build(database)
+    change(database, "DELETE FROM posting_skills")
+    assert build(database) == 0
+    assert load_role_profile(database, "Registered Nurse") == []
+    assert is_current(database)
+
+
+def test_stale_profiles_are_current_again_if_extraction_restores_the_same_links(database):
+    build(database)
+    change(database, "DELETE FROM posting_skills")
+    assert not is_current(database)
+    with closing(sqlite3.connect(database)) as conn:
+        save_posting_skills(conn, 4, ["Communication"])
+        save_posting_skills(conn, 1, SKILL_NAMES[:25])
+        save_posting_skills(conn, 2, SKILL_NAMES[:5])
+        conn.commit()
+    assert is_current(database)
+    assert load_role_profile(database, "Registered Nurse") == [{"skill": "Communication", "percentage": 100.0}]
+
+
+@pytest.mark.parametrize("description, sql, params", [
+    ("a link is added", "INSERT INTO posting_skills(job_id, skill_id) VALUES (6, 1)", ()),
+    ("a posting is removed", "DELETE FROM postings WHERE job_id = 5", ()),
+    ("a posting is added", "INSERT INTO postings(job_id, title) VALUES (99, 'Data Analyst')", ()),
+    ("a title changes to one of the same length", "UPDATE postings SET title = 'Data Analyzt' WHERE job_id = 1", ()),
+    ("a skill is renamed", "UPDATE skills SET name = 'Communication Skills' WHERE name = 'Communication'", ()),
+    ("a link moves to another skill", "UPDATE posting_skills SET skill_id = 2 WHERE job_id = 4", ()),
+])
+def test_any_change_to_the_source_data_makes_the_profiles_stale(database, description, sql, params):
+    with closing(sqlite3.connect(database)) as conn:  # job 6 needs a posting row for the first case
+        with conn:
+            conn.execute("INSERT INTO postings(job_id, title) VALUES (6, 'Barista')")
+    build(database)
+    assert is_current(database), description
+    change(database, sql, params)
+    assert not is_current(database), description
+    with pytest.raises(StaleRoleProfiles):
+        load_role_profile(database, "Data Analyst")
+
+
+def test_changing_the_role_rules_makes_the_profiles_stale(database, monkeypatch):
+    build(database)
+    monkeypatch.setattr(role_profiles_module, "ROLE_RULES", {**ROLE_RULES, "Barista": ("barista",)})
+    assert not is_current(database)
+
+
+def test_profiles_built_before_change_tracking_are_treated_as_stale(database):
+    build(database)
+    change(database, "DROP TABLE role_profile_meta")
+    with pytest.raises(StaleRoleProfiles, match="Rebuild them"):
+        load_role_profile(database, "Data Analyst")
+
+
+def test_profiles_are_stale_if_the_source_tables_disappear(database):
+    build(database)
+    change(database, "DROP TABLE posting_skills")
+    assert not is_current(database)
+    with pytest.raises(StaleRoleProfiles):
+        load_role_profile(database, "Data Analyst")
+
+
+def test_stale_profiles_are_reported_through_the_error_the_dashboard_already_handles(database):
+    assert issubclass(StaleRoleProfiles, MissingRoleProfiles)
+    build(database)
+    change(database, "DELETE FROM posting_skills")
+    try:
+        load_role_profile(database, "Data Analyst")
+    except MissingRoleProfiles as error:  # app.py catches this and shows str(error)
+        assert "Rebuild them with" in str(error)
+
+
+def test_each_build_keeps_exactly_one_fingerprint(database):
+    build(database)
+    build(database)
+    with closing(sqlite3.connect(database)) as conn:
+        assert conn.execute("SELECT COUNT(*) FROM role_profile_meta").fetchone()[0] == 1
+
+
+def test_a_failed_build_keeps_the_old_profiles_and_fingerprint(database):
+    build(database)
+    change(database, "DROP TABLE skills")
+    with closing(sqlite3.connect(database)) as conn:
+        with pytest.raises(sqlite3.Error):
+            build_role_profiles(conn)
+    assert stored(database)["Registered Nurse"] == {"Communication": 100.0}
 
 
 def load_script():
