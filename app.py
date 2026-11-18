@@ -124,4 +124,3 @@ else:
     except sqlite3.Error as error:
         st.error("Could not load skills from the database. Check that it was built with the skill catalog.")
         st.code(str(error), language="text")
-    st.plotly_chart(skill_heatmap(roles), width="content", key="skill-heatmap")
