@@ -31,6 +31,7 @@ Skip the changelog for typo fixes, formatting or comment-only PRs.
 - TA4-41: Added a skill picker: alphabetical, duplicate-free skill list with live, synonym-aware search multi-select with per-skill removal.
 - TA4-52: The dashboard now has a role dropdown: choose one role from the full list, and picking another replaces it.
 - TA4-54: The dashboard now shows the 15 most requested skills across all postings, with each skill’s share of postings, and lets you filter the list by role.
+- TA4-59: Compare two roles side by side: pick any two roles to see which of their top skills they share and which are unique to each, with each skill’s share of postings and a plain-language summary.
 - TA4-46: Verify raw-to-cleaned-to-skills processing, catalog consolidation, record errors, reruns, and database rebuilds with isolated functional tests.
 - TA4-37: Process cleaned postings in chunks with record validation, warning logs, stored catalog matching, and structured outcomes.
 - TA4-44: Add reviewed skill/alias management and confirmed consolidation that preserves posting associations.
