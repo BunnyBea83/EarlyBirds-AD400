@@ -28,6 +28,7 @@ Skip the changelog for typo fixes, formatting or comment-only PRs.
 ## [Unreleased]
 
 ### Added
+- TA4-48/TA4-50: Added “How well do my skills match a role?”: pick a role and your skills to see how many of the role’s top skills you have (“7 out of 20”), with the skills you have and the ones you’re missing listed by demand. 
 - TA4-41: Added a skill picker: alphabetical, duplicate-free skill list with live, synonym-aware search multi-select with per-skill removal.
 - TA4-52: The dashboard now has a role dropdown: choose one role from the full list, and picking another replaces it.
 - TA4-54: The dashboard now shows the 15 most requested skills across all postings, with each skill’s share of postings, and lets you filter the list by role.
@@ -42,6 +43,7 @@ Skip the changelog for typo fixes, formatting or comment-only PRs.
 - TA4-45: Cleaning report with step-by-step row counts, missing-value choices, known limitations and a data dictionary (`docs/data/cleaning_report.md`). (#2)
 
 ### Changed
+- TA4-48/TA4-50: Role profiles now leave out skills that fewer than 1% of a role’s postings mention.
 
 ### Fixed
 - TA4-37: Show specific extraction error hints for missing or locked databases without suggesting a rebuild for unrelated failures. (#7)
