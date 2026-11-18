@@ -5,8 +5,10 @@ import sqlite3
 
 import streamlit as st
 
+from birdseye.charts.category_mix import category_mix_chart
 from birdseye.charts.heatmap import skill_heatmap
 from birdseye.charts.top_skills import top_skills_chart
+from birdseye.charts.word_cloud import CAPTION, skill_word_cloud
 from birdseye.skill_summary import load_summary, summarize
 
 
@@ -51,3 +53,28 @@ st.caption("A posting can mention several skills, so these percentages can add u
 st.header("Compare skill demand across roles")
 with st.container(horizontal=True):
     st.plotly_chart(skill_heatmap(roles), width="content", key="skill-heatmap")
+
+st.header("Frequent skills at a glance")
+for role, row in roles.items():
+    cloud = skill_word_cloud(row)
+    if cloud is None:
+        st.subheader(f"{role}: No skills detected")
+    else:
+        st.subheader(f"{role}: {row['skills'][0]['skill']} ranks first")
+        st.image(cloud.to_array(), caption=CAPTION, width="stretch")
+        with st.expander("Read skill names and posting counts"):
+            for skill in list(cloud.words_):
+                count = next(item["posting_count"] for item in row["skills"] if item["skill"] == skill)
+                st.write(f"{skill} — {count:,}")
+
+st.header("What kinds of skills do roles request?")
+st.plotly_chart(category_mix_chart(roles), key="category-mix")
+st.caption("Each share is the category’s portion of all skill mentions for the role. "
+           "Each skill is counted once per posting, and one posting may mention several skills.")
+with st.expander("Read category shares"):
+    for role, row in roles.items():
+        st.markdown(f"**{role}**")
+        if not row["categories"]:
+            st.write("No skills detected")
+        for category in row["categories"]:
+            st.write(f"{category['category']}: {category['match_percentage']:.1f}%")
