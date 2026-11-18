@@ -101,8 +101,10 @@ def comparison_rows(result: Mapping) -> list[dict]:
 
 # --- Plain-language summary paragraph (TA4-63) ---
 
-MANY_SHARED = 8  # at or above this many shared skills (40% of the top 20), the roles "overlap quite a bit"
-SOME_SHARED = 4  # below this many, they "share few of their most requested skills"
+# The overlap wording depends on what share of the longer list the roles have in common, so it
+# stays accurate for roles that have fewer than TOP_SKILLS skills.
+MANY_SHARED = 0.4  # at or above this share, the roles "overlap quite a bit"
+SOME_SHARED = 0.2  # below this share, they "share few of their most requested skills"
 
 
 def _percent(share: float) -> str:
@@ -112,22 +114,42 @@ def _percent(share: float) -> str:
     return f"{math.floor(share + 0.5)}%"
 
 
-def _unique_sentence(role: str, other: str, rows: list[dict], key: str, also: bool) -> str:
+def _top(size: int) -> str:
+    """"the top 12" for a list of 12 skills; no number for a single skill."""
+    return f"the top {size}" if size > 1 else "the top skills"
+
+
+def _unique_sentence(role: str, other: str, rows: list[dict], key: str, also: bool, other_size: int) -> str:
     """One sentence about the skills that stand out for `role` but not for `other`."""
     if not rows:
-        return f"Every one of the top {TOP_SKILLS} skills for {role} is also among the top {TOP_SKILLS} for {other}."
+        return f"Every one of the top skills found for {role} is also among {_top(other_size)} for {other}."
     named = f"{rows[0]['skill']} ({_percent(rows[0][key])} of {role} postings)"
     if len(rows) > 1:
         named += f" and {rows[1]['skill']} ({_percent(rows[1][key])})"
     lead = "also stand out" if also else "stand out"
     verb = "are" if len(rows) > 1 else "is"
-    return f"{role} postings {lead} for {named}, which {verb} not among the top {TOP_SKILLS} for {other}."
+    return f"{role} postings {lead} for {named}, which {verb} not among {_top(other_size)} for {other}."
+
+
+def _overlap_clause(role_a: str, role_b: str, count: int, size_a: int, size_b: int) -> str:
+    """"N of the M skills ..." using each role's real list length, not a fixed 20."""
+    verb = "is" if count == 1 else "are"
+    if size_a == size_b:
+        return f"{count} of the {size_a} skills most often requested for each role {verb} the same"
+    small, large, size_small, size_large = (role_a, role_b, size_a, size_b) if size_a < size_b \
+        else (role_b, role_a, size_b, size_a)
+    if count == size_small:
+        lead = "the one skill" if count == 1 else f"all {count} of the skills"
+        verb = "is" if count == 1 else "are"
+        return f"{lead} most often requested for {small} {verb} also among the top {size_large} for {large}"
+    return (f"{count} of the {size_small} skills most often requested for {small} {verb} also among "
+            f"the top {size_large} for {large}")
 
 
 def _takeaway(role_a: str, role_b: str, shared: list[dict], only_a: list[dict], only_b: list[dict]) -> str:
     """The closing sentence: what the roles share, plus a soft pointer to the best unique skill.
 
-    It suggests looking into the most requested skill that is in only one role's top 20, for
+    It suggests looking into the most requested skill that is not among the other role's top skills, for
     the role the reader wants. It does not assume which role that is, and it does not predict
     how hard a move between the roles would be.
     """
@@ -137,14 +159,14 @@ def _takeaway(role_a: str, role_b: str, shared: list[dict], only_a: list[dict], 
     if only_a and only_b:
         parts.append(
             f"it may be worth looking into learning the most requested skill found in only one role's "
-            f"top {TOP_SKILLS} for the role you want: {only_a[0]['skill']} for {role_a} or "
+            f"top skills for the role you want: {only_a[0]['skill']} for {role_a} or "
             f"{only_b[0]['skill']} for {role_b}"
         )
     elif only_a or only_b:
         role, other, row = (role_a, role_b, only_a[0]) if only_a else (role_b, role_a, only_b[0])
         parts.append(
             f"if you are interested in {role}, it may be worth looking into learning {row['skill']}, "
-            f"the most requested skill in its top {TOP_SKILLS} that is not in the top {TOP_SKILLS} for {other}"
+            f"its most requested skill that is not among {other}'s top skills"
         )
     return "If you are comparing these roles, " + ", and ".join(parts) + "."
 
@@ -156,7 +178,7 @@ def describe_comparison(result: Mapping) -> str:
     skills, up to two skills that stand out for each role (each with its share of that
     role's postings, as whole-number percentages), and a closing sentence that restates
     the overlap and suggests looking into the most requested unique skill. It only reports
-    what the top-20 lists show: it does not predict how hard a move between the roles would
+    what the top-skill lists show: it does not predict how hard a move between the roles would
     be or how much a reader would need to learn. It does not assume which role the reader is
     coming from. When there are fewer than two skills to name, it names what exists. A role
     with no skills found gets one explanatory sentence instead.
@@ -171,6 +193,7 @@ def describe_comparison(result: Mapping) -> str:
         return f"We didn't find any skills in the {missing[0]} postings yet, so a comparison with {other} isn't possible."
 
     count = len(shared)
+    size_a, size_b = count + len(only_a), count + len(only_b)  # the lists' real lengths
     named = f"{shared[0]['skill']} (mentioned in {_percent(shared[0]['share_a'])} of {role_a} postings " \
             f"and {_percent(shared[0]['share_b'])} of {role_b} postings)" if shared else ""
     if count == 1:
@@ -188,20 +211,19 @@ def describe_comparison(result: Mapping) -> str:
 
     sentences = []
     if count == 0:
-        sentences.append(f"These two roles share none of the {TOP_SKILLS} skills most often requested "
-                         "for each.")
+        sentences.append("These two roles have no skills in common among the most requested for each.")
     else:
-        if count >= SOME_SHARED:
-            overlap = "overlap quite a bit" if count >= MANY_SHARED else "have some skills in common"
-            sentences.append(f"{role_a} and {role_b} job postings {overlap}: {count} of the {TOP_SKILLS} "
-                             "skills most often requested for each role are the same.")
+        clause = _overlap_clause(role_a, role_b, count, size_a, size_b)
+        fraction = count / max(size_a, size_b)
+        if fraction >= SOME_SHARED:
+            overlap = "overlap quite a bit" if fraction >= MANY_SHARED else "have some skills in common"
+            sentences.append(f"{role_a} and {role_b} job postings {overlap}: {clause}.")
         else:
-            verb = "is" if count == 1 else "are"
             sentences.append(f"{role_a} and {role_b} job postings share few of their most requested skills: "
-                             f"only {count} of the {TOP_SKILLS} skills most often requested for each role {verb} the same.")
+                             f"only {clause}.")
         sentences.append(shared_sentence)
 
-    sentences.append(_unique_sentence(role_a, role_b, only_a, "share_a", also=count >= 2))
-    sentences.append(_unique_sentence(role_b, role_a, only_b, "share_b", also=False))
+    sentences.append(_unique_sentence(role_a, role_b, only_a, "share_a", count >= 2, size_b))
+    sentences.append(_unique_sentence(role_b, role_a, only_b, "share_b", False, size_a))
     sentences.append(_takeaway(role_a, role_b, shared, only_a, only_b))
     return " ".join(sentences)
