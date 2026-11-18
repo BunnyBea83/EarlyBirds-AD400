@@ -55,6 +55,14 @@ python scripts/clean_data.py
 
 This cleans the raw files and saves the result to `data/processed/birdseye.db`. The database is rebuilt from scratch every run, so it always matches the latest cleaning code.
 
+## 3. Build role profiles
+
+```bash
+python scripts/build_role_profiles.py --db data/processed/birdseye.db
+```
+
+This saves each role's top 20 skills and their share of that role's postings in the `role_profiles` table. Run it after every `extract_skills.py` run. The dashboard's "Role skill profile" section needs it.
+
 ## What's in the database
 
 One table, **`postings`**: one row per cleaned job posting, with company and industry details joined in. Duplicates and empty postings are removed, dates are `YYYY-MM-DD`, and salaries have yearly versions alongside the originals.

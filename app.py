@@ -10,8 +10,10 @@ from contextlib import closing
 from birdseye.skill_input import render_skill_input
 from birdseye.charts.heatmap import skill_heatmap
 from birdseye.charts.top_skills import top_skills_chart
-from birdseye.skill_summary import MissingSkillTables, load_summary, summarize
+from birdseye.role_profiles import MAX_PROFILE_SKILLS, MissingRoleProfiles, load_role_profile
+from birdseye.role_selector import ALL_POSTINGS, render_role_dropdown
 from birdseye.skill_ranking import combine_roles, load_top_skills
+from birdseye.skill_summary import MissingSkillTables, load_summary, summarize
 
 
 
@@ -60,16 +62,22 @@ else:
 roles = summary["roles"]
 unresolved = sum(summary["unresolved_roles"].values())
 if unresolved:
-    st.caption(f"{unresolved:,} postings with unresolved roles are excluded from these charts.")
+    st.caption(f"{unresolved:,} postings with unresolved roles are excluded from the by-role "
+               "charts. The \"All postings\" chart includes them.")
+
+# --- TA4-66: Top skills by role ---
 st.header("Top skills by role")
 for role, row in roles.items():
     st.plotly_chart(top_skills_chart(role, row), key=f"top-{role}")
 st.caption("A posting can mention several skills, so these percentages can add up to more than 100%.")
 
+# --- TA4-54: Most requested skills (top 15), all postings or one role ---
 st.header("Most requested skills")
 overall = combine_roles(roles) if demo else load_top_skills(database)
-choice = st.selectbox("Show skills requested for", ["All postings", *roles])
-chosen = overall if choice == "All postings" else roles[choice]
+choice = render_role_dropdown(
+    roles, key="top-skills-role", label="Show skills requested for", include_all=True
+)
+chosen = overall if choice == ALL_POSTINGS else roles[choice]
 st.plotly_chart(top_skills_chart(choice, chosen), key="most-requested")
 st.caption(
     f"Based on {chosen['total_postings']:,} postings. Each bar shows the percentage of "
@@ -77,6 +85,30 @@ st.caption(
     "percentages can add up to more than 100%."
 )
 
+# --- TA4-52: Role dropdown (shares its list and behavior with TA4-54) ---
+# --- TA4-51: The selected role's stored skill profile (up to 20 skills) ---
+st.header("Role skill profile")
+target_role = render_role_dropdown(roles, key="target-role")  # None until a role is picked
+if target_role is None:
+    st.info(f"Choose a role to see its top {MAX_PROFILE_SKILLS} skills.")
+else:
+    profile = None
+    if demo:
+        profile = roles[target_role]["skills"][:MAX_PROFILE_SKILLS]  # the demo has no database table
+    else:
+        try:
+            profile = load_role_profile(database, target_role)
+        except MissingRoleProfiles as error:
+            st.warning(str(error))
+    if profile is not None:
+        st.plotly_chart(
+            top_skills_chart(target_role, {
+                "total_postings": roles[target_role]["total_postings"], "top_skills": profile,
+            }),
+            key="role-profile",
+        )
+
+# --- TA4-67: Compare skill demand across roles in a heatmap ---
 st.header("Compare skill demand across roles")
 with st.container(horizontal=True):
     st.plotly_chart(skill_heatmap(roles), width="content", key="skill-heatmap")
