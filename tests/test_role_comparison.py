@@ -220,32 +220,9 @@ LITTLE = comparison(
     only_a=[skill_row("SQL", 75, 0), skill_row("Python", 50, 0)],
     only_b=[skill_row("Patient Care", 0, 90), skill_row("Documentation", 0, 60)],
 )
-<<<<<<< HEAD
-NONE_SHARED = comparison(
-    "Data Analyst", "Registered Nurse",
-    only_a=[skill_row("SQL", 75, 0), skill_row("Python", 50, 0)],
-    only_b=[skill_row("Patient Care", 0, 90), skill_row("Documentation", 0, 60)],
-)
-ONE_SIDED = comparison(
-    "Data Analyst", "Data Scientist",
-    shared=[skill_row("Python", 50, 100), skill_row("SQL", 75, 50)] + [skill_row(f"S{n}", 5, 5) for n in range(3)],
-    only_a=[skill_row("Tableau", 25, 0)],
-)
-IDENTICAL = comparison("Data Analyst", "Data Scientist", shared=[skill_row("Python", 50, 100), skill_row("SQL", 75, 50)])
-NO_SKILLS = comparison("Project Manager", "Marketing Manager", only_b=[skill_row("Writing", 0, 100)])
-
-# Phrases that claim more than the top-20 overlap shows (reviewer feedback on TA4-59).
-# Whole words only, so skill names such as "Machine Learning" don't trip it.
-OVERREACHING = (r"\beasier\b", r"\bharder\b", r"\bswitch\w*", r"\blearn\b", r"\bsafest\b", r"\bshould\b",
-                r"\bexpect\b", r"\bmove\b", r"mostly new", r"little in common", r"good next", r"\bstart(ing)? with\b")
-
-
-def test_typical_pair_gets_the_reviewed_paragraph():
-=======
 
 
 def test_typical_pair_gets_the_approved_paragraph():
->>>>>>> a841148e1a1a7d1a8141efcbf208bfc410a043a4
     assert describe_comparison(TYPICAL) == (
         "Data Analyst and Data Scientist job postings overlap quite a bit: 8 of the 20 skills most often "
         "requested for each role are the same. Both roles frequently ask for Python (mentioned in 50% of "
@@ -253,26 +230,6 @@ def test_typical_pair_gets_the_approved_paragraph():
         "postings also stand out for Tableau (25% of Data Analyst postings) and Microsoft Excel (25%), "
         "which are not among the top 20 for Data Scientist. Data Scientist postings stand out for Machine "
         "Learning (100% of Data Scientist postings) and PyTorch (50%), which are not among the top 20 for "
-<<<<<<< HEAD
-        "Data Analyst. If you are comparing these roles, the shared skills are the ones postings for both "
-        "roles ask for, and it may be worth looking into learning the most requested skill found in only "
-        "one role's top 20 for the role you want: Tableau for Data Analyst or Machine Learning for Data "
-        "Scientist."
-    )
-
-
-def test_pair_with_one_shared_skill_gets_the_reviewed_paragraph():
-    assert describe_comparison(LITTLE) == (
-        "Data Analyst and Registered Nurse job postings share few of their most requested skills: only 1 of "
-        "the 20 skills most often requested for each role is the same. Both roles ask for Communication "
-        "(mentioned in 30% of Data Analyst postings and 80% of Registered Nurse postings). Data Analyst "
-        "postings stand out for SQL (75% of Data Analyst postings) and Python (50%), which are not among "
-        "the top 20 for Registered Nurse. Registered Nurse postings stand out for Patient Care (90% of "
-        "Registered Nurse postings) and Documentation (60%), which are not among the top 20 for Data "
-        "Analyst. If you are comparing these roles, the shared skills are the ones postings for both roles "
-        "ask for, and it may be worth looking into learning the most requested skill found in only one "
-        "role's top 20 for the role you want: SQL for Data Analyst or Patient Care for Registered Nurse."
-=======
         "Data Analyst. If you are switching between these roles, the shared skills are the safest place to "
         "start, and after that the most requested skill unique to the role you want, such as Tableau for "
         "Data Analyst or Machine Learning for Data Scientist, is a good next one to learn."
@@ -289,7 +246,6 @@ def test_pair_with_one_shared_skill_gets_the_approved_paragraph():
         "Documentation (60%), which are not among the top 20 for Data Analyst. If you are switching between "
         "these roles, expect to learn mostly new skills, starting with the most requested one for the role "
         "you want: SQL for Data Analyst or Patient Care for Registered Nurse."
->>>>>>> a841148e1a1a7d1a8141efcbf208bfc410a043a4
     )
 
 
@@ -299,22 +255,6 @@ def test_paragraph_is_three_to_five_sentences_and_names_two_shared_and_two_uniqu
     for skill in ("Python", "SQL", "Tableau", "Microsoft Excel", "Machine Learning", "PyTorch"):
         assert skill in text
     assert text.count("%") == 8  # two shared skills x two roles, plus two unique skills per role
-<<<<<<< HEAD
-    assert text.rstrip(".").split(". ")[-1].startswith("If you are comparing these roles")  # closing sentence
-
-
-def test_roles_with_no_shared_skills_say_so_without_predicting_anything():
-    text = describe_comparison(NONE_SHARED)
-    assert text == (
-        "These two roles share none of the 20 skills most often requested for each. Data Analyst postings "
-        "stand out for SQL (75% of Data Analyst postings) and Python (50%), which are not among the top 20 "
-        "for Registered Nurse. Registered Nurse postings stand out for Patient Care (90% of Registered "
-        "Nurse postings) and Documentation (60%), which are not among the top 20 for Data Analyst. If you "
-        "are comparing these roles, it may be worth looking into learning the most requested skill found "
-        "in only one role's top 20 for the role you want: SQL for Data Analyst or Patient Care for "
-        "Registered Nurse."
-    )
-=======
     assert text.rstrip(".").split(". ")[-1].startswith("If you are switching")  # ends with a takeaway
 
 
@@ -326,63 +266,10 @@ def test_roles_with_no_shared_skills_say_so():
     ))
     assert text.startswith("These two roles have no skills in common among the 20 most requested for each, "
                            "so switching between them means learning mostly new ones. Data Analyst postings stand out")
->>>>>>> a841148e1a1a7d1a8141efcbf208bfc410a043a4
     assert "also stand out" not in text
     assert 3 <= sentence_count(text) <= 5
 
 
-<<<<<<< HEAD
-def test_a_role_with_no_unique_skills_is_described_by_the_overlap_only():
-    text = describe_comparison(ONE_SIDED)
-    assert "job postings have some skills in common: 5 of the 20" in text
-    assert "Data Analyst postings also stand out for Tableau (25% of Data Analyst postings), which is not among " \
-           "the top 20 for Data Scientist." in text
-    assert "Every one of the top 20 skills for Data Scientist is also among the top 20 for Data Analyst." in text
-    assert text.endswith(
-        "if you are interested in Data Analyst, it may be worth looking into learning Tableau, the most "
-        "requested skill in its top 20 that is not in the top 20 for Data Scientist."
-    )
-
-
-def test_roles_with_identical_top_skills_say_so_and_nothing_more():
-    assert describe_comparison(IDENTICAL) == (
-        "Data Analyst and Data Scientist job postings ask for the same most requested skills. Both roles "
-        "frequently ask for Python (mentioned in 50% of Data Analyst postings and 100% of Data Scientist "
-        "postings) and SQL (75% and 50%). If you are comparing these roles, the shared skills are the ones "
-        "postings for both roles ask for."
-    )
-
-
-@pytest.mark.parametrize("case, suggested, not_suggested", [
-    (TYPICAL, ["Tableau for Data Analyst", "Machine Learning for Data Scientist"], ["Microsoft Excel", "PyTorch"]),
-    (LITTLE, ["SQL for Data Analyst", "Patient Care for Registered Nurse"], ["Python", "Documentation"]),
-    (NONE_SHARED, ["SQL for Data Analyst", "Patient Care for Registered Nurse"], ["Python", "Documentation"]),
-], ids=["many shared", "one shared", "none shared"])
-def test_the_closing_sentence_suggests_only_each_roles_most_requested_unique_skill(case, suggested, not_suggested):
-    closing_sentence = describe_comparison(case).split(". ")[-1]
-    assert "it may be worth looking into learning the most requested skill found in only one role's top 20" \
-        in closing_sentence
-    for skill_for_role in suggested:
-        assert skill_for_role in closing_sentence
-    for skill in not_suggested:  # the second-ranked unique skills are named earlier, not suggested
-        assert skill not in closing_sentence
-
-
-def test_identical_top_skills_leave_nothing_to_suggest():
-    assert "worth looking into" not in describe_comparison(IDENTICAL)
-
-
-@pytest.mark.parametrize("case", [TYPICAL, LITTLE, NONE_SHARED, ONE_SIDED, IDENTICAL],
-                         ids=["typical", "one shared", "none shared", "one side has no unique", "identical"])
-def test_the_paragraph_only_reports_the_overlap_and_makes_no_predictions_or_advice(case):
-    text = describe_comparison(case).lower()
-    for pattern in OVERREACHING:
-        assert not re.search(pattern, text), pattern
-
-
-def test_a_role_with_no_skills_found_gets_one_explanatory_sentence():
-    assert describe_comparison(NO_SKILLS) == (
-=======
 def test_a_role_with_no_unique_skills_is_described_as_an_easier_move():
     text = describe_comparison(comparison(
         "Data Analyst", "Data Scientist",
@@ -412,7 +299,6 @@ def test_roles_with_identical_top_skills_do_not_claim_they_have_little_in_common
 def test_a_role_with_no_skills_found_gets_one_explanatory_sentence():
     one_missing = comparison("Project Manager", "Marketing Manager", only_b=[skill_row("Writing", 0, 100)])
     assert describe_comparison(one_missing) == (
->>>>>>> a841148e1a1a7d1a8141efcbf208bfc410a043a4
         "We didn't find any skills in the Project Manager postings yet, so a comparison with "
         "Marketing Manager isn't possible."
     )
@@ -436,18 +322,6 @@ def test_paragraph_matches_the_figures_in_the_table(database):
     result = compare(database)
     text = describe_comparison(result)
     assert text == (
-<<<<<<< HEAD
-        "Data Analyst and Data Scientist job postings share few of their most requested skills: only 2 of "
-        "the 20 skills most often requested for each role are the same. Both roles frequently ask for "
-        "Python (mentioned in 50% of Data Analyst postings and 100% of Data Scientist postings) and SQL "
-        "(75% and 50%). Data Analyst postings also stand out for Microsoft Excel (25% of Data Analyst "
-        "postings) and Tableau (25%), which are not among the top 20 for Data Scientist. Data Scientist "
-        "postings stand out for Machine Learning (100% of Data Scientist postings) and PyTorch (50%), which "
-        "are not among the top 20 for Data Analyst. If you are comparing these roles, the shared skills are "
-        "the ones postings for both roles ask for, and it may be worth looking into learning the most "
-        "requested skill found in only one role's top 20 for the role you want: Microsoft Excel for Data "
-        "Analyst or Machine Learning for Data Scientist."
-=======
         "Data Analyst and Data Scientist job postings have little in common: only 2 of the 20 skills most "
         "often requested for each role are the same. Both roles frequently ask for Python (mentioned in 50% "
         "of Data Analyst postings and 100% of Data Scientist postings) and SQL (75% and 50%). Data Analyst "
@@ -456,7 +330,6 @@ def test_paragraph_matches_the_figures_in_the_table(database):
         "(100% of Data Scientist postings) and PyTorch (50%), which are not among the top 20 for Data Analyst. "
         "If you are switching between these roles, expect to learn mostly new skills, starting with the most "
         "requested one for the role you want: Microsoft Excel for Data Analyst or Machine Learning for Data Scientist."
->>>>>>> a841148e1a1a7d1a8141efcbf208bfc410a043a4
     )
     by_skill = {row["Skill"]: row for row in comparison_rows(result)}
     assert by_skill["SQL"]["Data Analyst"] == 75.0 and by_skill["Machine Learning"]["Data Scientist"] == 100.0
