@@ -3,8 +3,9 @@
 role_profiles(role, skill, share): one row per skill in a role's profile, for
 every role in one table. share is the percentage (0-100) of that role's
 postings that mention the skill, the same figure the dashboard charts show.
-A profile holds up to 20 skills: a role that mentions fewer than 20 different
-skills has a shorter profile, and a role with no skills found has no rows.
+A profile holds up to 20 skills, and only skills that at least 1% of the role's postings
+mention: a rare skill that a few postings happen to list is not part of what the role
+asks for. So a role can have a shorter profile, and a role with no skills found has no rows.
 
 The table is derived from postings and posting_skills, so rebuild it after
 cleaning, skill extraction, or any change to the skill catalog
@@ -27,6 +28,7 @@ from birdseye.roles import ROLE_RULES
 from birdseye.skill_summary import read_summary
 
 MAX_PROFILE_SKILLS = 20
+MIN_PROFILE_SHARE = 1.0  # percent of the role's postings; rarer skills are left out of the profile
 REBUILD_COMMAND = "python scripts/build_role_profiles.py --db data/processed/birdseye.db"
 
 
@@ -38,18 +40,29 @@ class StaleRoleProfiles(MissingRoleProfiles):
     """The stored profiles no longer match the postings and skills they were built from."""
 
 
+def profile_skills(
+    skills: list[dict], size: int = MAX_PROFILE_SKILLS, min_share: float = MIN_PROFILE_SHARE
+) -> list[dict]:
+    """Return the top `size` of a role's ranked skills that reach `min_share` percent of its postings.
+
+    `skills` is already ranked by share (as in skill_summary), so the first `size` rows
+    that reach the minimum are the top skills.
+    """
+    return [row for row in skills if row["percentage"] >= min_share][:size]
+
+
 def profile_rows(
-    roles: Mapping[str, dict], size: int = MAX_PROFILE_SKILLS
+    roles: Mapping[str, dict], size: int = MAX_PROFILE_SKILLS, min_share: float = MIN_PROFILE_SHARE
 ) -> list[tuple[str, str, float]]:
     """Return (role, skill, share) rows holding each role's top `size` skills.
 
-    Skills are ranked by share, ties alphabetical, exactly as in skill_summary.
-    Only skills that appear in at least one of the role's postings are included.
+    Skills are ranked by share, ties alphabetical, exactly as in skill_summary. Only skills
+    in at least `min_share` percent of the role's postings are included.
     """
     return [
         (role, row["skill"], row["percentage"])
         for role, entry in roles.items()
-        for row in entry["skills"][:size]
+        for row in profile_skills(entry["skills"], size, min_share)
     ]
 
 
@@ -82,7 +95,7 @@ def source_fingerprint(conn: sqlite3.Connection, size: int = MAX_PROFILE_SKILLS)
     ).fetchone()
     skills = [f"{skill_id}:{name}" for skill_id, name in
               conn.execute("SELECT skill_id, name FROM skills ORDER BY skill_id")]
-    parts = {"rules": ROLE_RULES, "size": size, "postings": postings, "links": links, "skills": skills}
+    parts = {"rules": ROLE_RULES, "size": size, "min_share": MIN_PROFILE_SHARE, "postings": postings, "links": links, "skills": skills}
     return hashlib.sha256(json.dumps(parts, sort_keys=True, default=list).encode()).hexdigest()
 
 

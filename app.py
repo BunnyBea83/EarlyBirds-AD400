@@ -9,7 +9,7 @@ import streamlit as st
 
 from birdseye.charts.heatmap import skill_heatmap
 from birdseye.charts.top_skills import top_skills_chart
-from birdseye.role_profiles import MAX_PROFILE_SKILLS, MissingRoleProfiles, load_role_profile
+from birdseye.role_profiles import MAX_PROFILE_SKILLS, MissingRoleProfiles, load_role_profile, profile_skills
 from birdseye.role_selector import ALL_POSTINGS, render_role_dropdown
 from birdseye.skill_input import render_skill_input
 from birdseye.skill_gap_view import render_skill_gap
@@ -94,7 +94,7 @@ if target_role is None:
     st.info(f"Choose a role to see its top {MAX_PROFILE_SKILLS} skills.")
 else:
     if demo:
-        profile = roles[target_role]["skills"][:MAX_PROFILE_SKILLS]  # the demo has no database table
+        profile = profile_skills(roles[target_role]["skills"])  # the demo has no database table
     else:
         try:
             profile = load_role_profile(database, target_role)
