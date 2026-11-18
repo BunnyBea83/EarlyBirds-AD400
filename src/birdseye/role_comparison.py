@@ -102,7 +102,7 @@ def comparison_rows(result: Mapping) -> list[dict]:
 # --- Plain-language summary paragraph (TA4-63) ---
 
 MANY_SHARED = 8  # at or above this many shared skills (40% of the top 20), the roles "overlap quite a bit"
-SOME_SHARED = 4  # below this many, they "have little in common"
+SOME_SHARED = 4  # below this many, they "share few of their most requested skills"
 
 
 def _percent(share: float) -> str:
@@ -115,8 +115,7 @@ def _percent(share: float) -> str:
 def _unique_sentence(role: str, other: str, rows: list[dict], key: str, also: bool) -> str:
     """One sentence about the skills that stand out for `role` but not for `other`."""
     if not rows:
-        return (f"Every one of the top skills for {role} is also requested for {other}, "
-                f"so {role} would be an easier move from {other}.")
+        return f"Every one of the top {TOP_SKILLS} skills for {role} is also among the top {TOP_SKILLS} for {other}."
     named = f"{rows[0]['skill']} ({_percent(rows[0][key])} of {role} postings)"
     if len(rows) > 1:
         named += f" and {rows[1]['skill']} ({_percent(rows[1][key])})"
@@ -125,14 +124,42 @@ def _unique_sentence(role: str, other: str, rows: list[dict], key: str, also: bo
     return f"{role} postings {lead} for {named}, which {verb} not among the top {TOP_SKILLS} for {other}."
 
 
+def _takeaway(role_a: str, role_b: str, shared: list[dict], only_a: list[dict], only_b: list[dict]) -> str:
+    """The closing sentence: what the roles share, plus a soft pointer to the best unique skill.
+
+    It suggests looking into the most requested skill that is in only one role's top 20, for
+    the role the reader wants. It does not assume which role that is, and it does not predict
+    how hard a move between the roles would be.
+    """
+    parts = []
+    if shared:
+        parts.append("the shared skills are the ones postings for both roles ask for")
+    if only_a and only_b:
+        parts.append(
+            f"it may be worth looking into learning the most requested skill found in only one role's "
+            f"top {TOP_SKILLS} for the role you want: {only_a[0]['skill']} for {role_a} or "
+            f"{only_b[0]['skill']} for {role_b}"
+        )
+    elif only_a or only_b:
+        role, other, row = (role_a, role_b, only_a[0]) if only_a else (role_b, role_a, only_b[0])
+        parts.append(
+            f"if you are interested in {role}, it may be worth looking into learning {row['skill']}, "
+            f"the most requested skill in its top {TOP_SKILLS} that is not in the top {TOP_SKILLS} for {other}"
+        )
+    return "If you are comparing these roles, " + ", and ".join(parts) + "."
+
+
 def describe_comparison(result: Mapping) -> str:
     """Write a short plain-language paragraph about what compare_roles() found (TA4-63).
 
-    It follows a sentence template: how much the roles overlap, up to two shared skills,
-    up to two skills that stand out for each role (each with its share of that role's
-    postings, as whole-number percentages), and a takeaway that does not assume which
-    role the reader is coming from. When there are fewer than two skills to name, it
-    names what exists. A role with no skills found gets one explanatory sentence instead.
+    It follows a sentence template: how much the top skills overlap, up to two shared
+    skills, up to two skills that stand out for each role (each with its share of that
+    role's postings, as whole-number percentages), and a closing sentence that restates
+    the overlap and suggests looking into the most requested unique skill. It only reports
+    what the top-20 lists show: it does not predict how hard a move between the roles would
+    be or how much a reader would need to learn. It does not assume which role the reader is
+    coming from. When there are fewer than two skills to name, it names what exists. A role
+    with no skills found gets one explanatory sentence instead.
     """
     role_a, role_b = result["role_a"], result["role_b"]
     shared, only_a, only_b = result["shared"], result["only_a"], result["only_b"]
@@ -156,13 +183,13 @@ def describe_comparison(result: Mapping) -> str:
         return " ".join([
             f"{role_a} and {role_b} job postings ask for the same most requested skills.",
             shared_sentence,
-            "If you are switching between these roles, the shared skills above are the ones to learn first.",
+            _takeaway(role_a, role_b, shared, [], []),
         ])
 
     sentences = []
     if count == 0:
-        sentences.append(f"These two roles have no skills in common among the {TOP_SKILLS} most requested "
-                         "for each, so switching between them means learning mostly new ones.")
+        sentences.append(f"These two roles share none of the {TOP_SKILLS} skills most often requested "
+                         "for each.")
     else:
         if count >= SOME_SHARED:
             overlap = "overlap quite a bit" if count >= MANY_SHARED else "have some skills in common"
@@ -170,19 +197,11 @@ def describe_comparison(result: Mapping) -> str:
                              "skills most often requested for each role are the same.")
         else:
             verb = "is" if count == 1 else "are"
-            sentences.append(f"{role_a} and {role_b} job postings have little in common: only {count} of the "
-                             f"{TOP_SKILLS} skills most often requested for each role {verb} the same.")
+            sentences.append(f"{role_a} and {role_b} job postings share few of their most requested skills: "
+                             f"only {count} of the {TOP_SKILLS} skills most often requested for each role {verb} the same.")
         sentences.append(shared_sentence)
 
     sentences.append(_unique_sentence(role_a, role_b, only_a, "share_a", also=count >= 2))
     sentences.append(_unique_sentence(role_b, role_a, only_b, "share_b", also=False))
-    picks = " or ".join(f"{rows[0]['skill']} for {role}"
-                        for role, rows in ((role_a, only_a), (role_b, only_b)) if rows)
-    if count >= SOME_SHARED:
-        sentences.append("If you are switching between these roles, the shared skills are the safest place to "
-                         f"start, and after that the most requested skill unique to the role you want, such as {picks}, "
-                         "is a good next one to learn.")
-    else:
-        sentences.append("If you are switching between these roles, expect to learn mostly new skills, "
-                         f"starting with the most requested one for the role you want: {picks}.")
+    sentences.append(_takeaway(role_a, role_b, shared, only_a, only_b))
     return " ".join(sentences)
