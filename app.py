@@ -16,6 +16,7 @@ from birdseye.skill_gap_view import render_skill_gap
 from birdseye.skill_ranking import combine_roles, load_top_skills
 from birdseye.skill_search import list_skills
 from birdseye.skill_summary import MissingSkillTables, load_summary, summarize
+from birdseye.role_comparison_view import render_role_comparison
 
 
 def demo_summary():
@@ -110,6 +111,17 @@ else:
 
 # --- TA4-41: Skill input (the person's own skills) ---
 selected_skill_names = set()  # skill names the person picked; empty until they pick some
+# --- TA4-67: Compare skill demand across roles in a heatmap ---
+st.header("Compare skill demand across roles")
+with st.container(horizontal=True):
+    st.plotly_chart(skill_heatmap(roles), width="content", key="skill-heatmap")
+
+# --- TA4-59: Compare two roles side by side (TA4-60 dropdowns, TA4-61 grouping) ---
+st.header("Compare two roles")
+render_role_comparison(roles)
+
+
+
 if database is None:
     st.caption("Skill selection uses the real database. Turn off the synthetic demo data to use it.")
 else:
@@ -128,8 +140,3 @@ if demo:
     st.caption("Skill matching uses the real database. Turn off the synthetic demo data to use it.")
 else:
     render_skill_gap(target_role, profile, selected_skill_names)
-
-# --- TA4-67: Compare skill demand across roles in a heatmap ---
-st.header("Compare skill demand across roles")
-with st.container(horizontal=True):
-    st.plotly_chart(skill_heatmap(roles), width="content", key="skill-heatmap")
