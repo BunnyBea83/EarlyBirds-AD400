@@ -43,10 +43,10 @@ def test_a_role_without_a_stored_profile_shows_nothing_here(make_app):
     assert not app.exception and len(app.metric) == 0 and len(app.info) == 0
 
 
-def test_a_role_with_no_skills_found_says_so(make_app):
+def test_a_role_whose_skills_are_all_too_rare_explains_the_minimum_share(make_app):
     app = make_app("Data Analyst", [], {"SQL"})
-    assert [info.value for info in app.info] == [
-        "No skills were found in Data Analyst postings, so there is nothing to compare yet."]
+    assert [info.value for info in app.info] == ["No skills meet the minimum posting share for this role."]
+    assert len(app.metric) == 0
 
 
 def test_the_match_is_shown_as_a_count_with_the_word_match(make_app):

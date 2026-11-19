@@ -165,6 +165,7 @@ def test_clearing_the_skill_links_makes_the_stored_profiles_stale(database):
     with pytest.raises(StaleRoleProfiles, match="out of date") as error:
         load_role_profile(database, "Registered Nurse")
     assert "build_role_profiles.py --db data/processed/birdseye.db" in str(error.value)
+    assert "rules for building profiles may have changed" in str(error.value)
     assert not is_current(database)
 
 

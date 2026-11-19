@@ -154,8 +154,9 @@ def read_role_profile(conn: sqlite3.Connection, role: str) -> list[dict]:
         )
     if not profiles_are_current(conn):
         raise StaleRoleProfiles(
-            "The stored role profiles are out of date, because the postings or skills changed "
-            f"after they were built. Rebuild them with: {REBUILD_COMMAND}"
+            "The stored role profiles are out of date. The postings or skills may have changed, "
+            "or the rules for building profiles may have changed (for example the minimum share "
+            f"of postings a skill needs), since they were built. Rebuild them with: {REBUILD_COMMAND}"
         )
     rows = conn.execute(
         "SELECT skill, share FROM role_profiles WHERE role = ? "

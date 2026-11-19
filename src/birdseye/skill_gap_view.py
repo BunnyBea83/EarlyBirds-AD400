@@ -30,7 +30,7 @@ def render_skill_gap(role: str | None, profile: list[dict] | None, have_skills: 
     if profile is None:
         return
     if not profile:
-        st.info(f"No skills were found in {role} postings, so there is nothing to compare yet.")
+        st.info("No skills meet the minimum posting share for this role.")
         return
 
     result = match_skills(profile, have_skills)

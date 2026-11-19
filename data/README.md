@@ -61,7 +61,7 @@ This cleans the raw files and saves the result to `data/processed/birdseye.db`. 
 python scripts/build_role_profiles.py --db data/processed/birdseye.db
 ```
 
-This saves each role's top 20 skills and their share of that role's postings in the `role_profiles` table. Run it after every `extract_skills.py` run. The dashboard's "Role skill profile" section needs it.
+This saves each role's top 20 skills and their share of that role's postings in the `role_profiles` table. Run it after every `extract_skills.py` run or after pulling a change to the profile rules. The dashboard's "Role skill profile" section needs it. 
 
 ## What's in the database
 
