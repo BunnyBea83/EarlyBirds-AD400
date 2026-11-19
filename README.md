@@ -118,6 +118,18 @@ Use `--db PATH` for another cleaned database or `--batch-size 500` to change
 the number of descriptions read at once. See [skill extraction](docs/skill_extraction.md)
 for vocabulary coverage and matching limitations.
 
+## View skill demand
+
+Build the database and run skill extraction, then save each role's top skills:
+
+```bash
+python scripts/build_role_profiles.py --db data/processed/birdseye.db
+```
+
+Run it after every extract_skills.py run. The dashboard's "Role skill profile" and "How well do my skills match a role?" sections need it. Then run `streamlit run app.py` from the repository root. Set `BIRDSEYE_DB` to use another database path.
+Select **Use synthetic demo data** in the sidebar to try the dashboard without
+downloading data. See [skill counting rules](docs/skill_summary.md).
+
 ## Run the tests
 
 From the repository root, with the virtual environment active:
@@ -142,6 +154,7 @@ storage, and batch processing. Running it as `python -m pytest`, rather than pla
 | PowerShell says running scripts is disabled | Run `Set-ExecutionPolicy -Scope CurrentUser RemoteSigned` once, then activate again. |
 | "Permission denied" deleting `.venv` | Something still uses it. Run `deactivate`, close VS Code and other terminals, then try again. |
 | `database is locked` when running `clean_data.py` | Close DB Browser (or any other program with `birdseye.db` open) and run it again. |
+| The dashboard says the role profiles are out of date, or asks you to build them | The stored profiles are older than the postings, the skills or the profile rules. Rebuild them: python scripts/build_role_profiles.py --db data/processed/birdseye.db |
 
 ## Project structure
 
@@ -186,9 +199,4 @@ See [`CONTRIBUTING.md`](CONTRIBUTING.md) for branch naming, Jira references, and
 
 Exact versions are pinned in `requirements.txt`.
 
-## View skill demand
 
-Build the database and run skill extraction, then run `streamlit run app.py`
-from the repository root. Set `BIRDSEYE_DB` to use another database path.
-Select **Use synthetic demo data** in the sidebar to try the dashboard without
-downloading data. See [skill counting rules](docs/skill_summary.md).

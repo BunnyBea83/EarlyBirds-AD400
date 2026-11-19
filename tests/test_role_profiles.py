@@ -9,8 +9,8 @@ import pytest
 
 import birdseye.role_profiles as role_profiles_module
 from birdseye.role_profiles import (
-    MAX_PROFILE_SKILLS, MissingRoleProfiles, StaleRoleProfiles, build_role_profiles,
-    load_role_profile, profile_rows, profiles_are_current,
+    MAX_PROFILE_SKILLS, MIN_PROFILE_SHARE, MissingRoleProfiles, StaleRoleProfiles, build_role_profiles,
+    load_role_profile, profile_rows, profile_skills, profiles_are_current,
 )
 from birdseye.roles import ROLE_RULES
 from birdseye.skill_storage import initialize_storage, save_posting_skills
@@ -165,6 +165,7 @@ def test_clearing_the_skill_links_makes_the_stored_profiles_stale(database):
     with pytest.raises(StaleRoleProfiles, match="out of date") as error:
         load_role_profile(database, "Registered Nurse")
     assert "build_role_profiles.py --db data/processed/birdseye.db" in str(error.value)
+    assert "rules for building profiles may have changed" in str(error.value)
     assert not is_current(database)
 
 
@@ -283,3 +284,44 @@ def test_script_explains_when_skill_extraction_has_not_run(tmp_path, capsys):
         conn.execute("CREATE TABLE postings(job_id INTEGER, title TEXT)")
     assert load_script().main(["--db", str(path)]) == 1
     assert "skill extraction" in capsys.readouterr().err
+
+
+# --- Rare skills are left out of the profile ---
+
+def ranked(*pairs):
+    return [{"skill": name, "percentage": share} for name, share in pairs]
+
+
+def test_skills_below_the_minimum_share_are_left_out_and_the_minimum_itself_is_kept():
+    skills = ranked(("SQL", 90.0), ("Git", 1.0), ("Docker", 0.9), ("Excel", 0.2))
+    assert MIN_PROFILE_SHARE == 1.0
+    assert [row["skill"] for row in profile_skills(skills)] == ["SQL", "Git"]
+
+
+def test_a_role_with_only_rare_skills_has_an_empty_profile():
+    assert profile_skills(ranked(("Docker", 0.5))) == []
+    assert profile_rows({"A": {"skills": ranked(("Docker", 0.5))}}) == []
+
+
+def test_the_profile_still_stops_at_twenty_skills():
+    many = ranked(*((f"Skill {n}", 50.0) for n in range(30)))
+    assert len(profile_skills(many)) == MAX_PROFILE_SKILLS
+
+
+def test_a_rare_skill_in_a_large_role_is_not_stored(tmp_path):
+    postings = [(job_id, "Project Manager") for job_id in range(1, 201)]
+    links = {job_id: ["Communication"] for job_id in range(1, 201)}
+    links[1] = ["Communication", "Python"]  # Python is in 1 of 200 postings: 0.5%
+    for job_id in range(2, 5):
+        links[job_id] = ["Communication", "SQL"]  # SQL is in 4 of 200 postings: 2%
+    path = build_database(tmp_path / "rare.db", postings, links)
+    build(path)
+    assert set(stored(path)["Project Manager"]) == {"Communication", "SQL"}
+    assert [row["skill"] for row in load_role_profile(path, "Project Manager")] == ["Communication", "SQL"]
+
+
+def test_changing_the_minimum_share_makes_stored_profiles_out_of_date(database, monkeypatch):
+    build(database)
+    assert is_current(database)
+    monkeypatch.setattr(role_profiles_module, "MIN_PROFILE_SHARE", 5.0)
+    assert not is_current(database)

@@ -2,21 +2,21 @@
 
 import os
 import sqlite3
+from contextlib import closing
 from pathlib import Path
 
 import streamlit as st
-from contextlib import closing
 
-from birdseye.skill_input import render_skill_input
 from birdseye.charts.heatmap import skill_heatmap
 from birdseye.charts.top_skills import top_skills_chart
-from birdseye.role_profiles import MAX_PROFILE_SKILLS, MissingRoleProfiles, load_role_profile
+from birdseye.role_profiles import MAX_PROFILE_SKILLS, MissingRoleProfiles, load_role_profile, profile_skills
 from birdseye.role_selector import ALL_POSTINGS, render_role_dropdown
+from birdseye.skill_input import render_skill_input
+from birdseye.skill_gap_view import render_skill_gap
 from birdseye.skill_ranking import combine_roles, load_top_skills
+from birdseye.skill_search import list_skills
 from birdseye.skill_summary import MissingSkillTables, load_summary, summarize
 from birdseye.role_comparison_view import render_role_comparison
-
-
 
 
 def demo_summary():
@@ -90,12 +90,12 @@ st.caption(
 # --- TA4-51: The selected role's stored skill profile (up to 20 skills) ---
 st.header("Role skill profile")
 target_role = render_role_dropdown(roles, key="target-role")  # None until a role is picked
+profile = None  # the selected role's profile; stays None until a role is picked and its profile loads
 if target_role is None:
     st.info(f"Choose a role to see its top {MAX_PROFILE_SKILLS} skills.")
 else:
-    profile = None
     if demo:
-        profile = roles[target_role]["skills"][:MAX_PROFILE_SKILLS]  # the demo has no database table
+        profile = profile_skills(roles[target_role]["skills"])  # the demo has no database table
     else:
         try:
             profile = load_role_profile(database, target_role)
@@ -109,6 +109,8 @@ else:
             key="role-profile",
         )
 
+# --- TA4-41: Skill input (the person's own skills) ---
+selected_skill_names = set()  # skill names the person picked; empty until they pick some
 # --- TA4-67: Compare skill demand across roles in a heatmap ---
 st.header("Compare skill demand across roles")
 with st.container(horizontal=True):
@@ -126,6 +128,15 @@ else:
     try:
         with closing(sqlite3.connect(database)) as conn:
             selected_skill_ids = render_skill_input(conn)
+            names_by_id = {skill.skill_id: skill.name for skill in list_skills(conn)}
+        selected_skill_names = {names_by_id[skill_id] for skill_id in selected_skill_ids}
     except sqlite3.Error as error:
         st.error("Could not load skills from the database. Check that it was built with the skill catalog.")
         st.code(str(error), language="text")
+
+# --- TA4-48 / TA4-50: Which of the role's top skills you have and are missing, and your match ---
+if demo:
+    st.header("How well do my skills match a role?")
+    st.caption("Skill matching uses the real database. Turn off the synthetic demo data to use it.")
+else:
+    render_skill_gap(target_role, profile, selected_skill_names)
