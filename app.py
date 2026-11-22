@@ -86,6 +86,15 @@ st.caption(
     "percentages can add up to more than 100%."
 )
 
+# --- TA4-67: Compare skill demand across roles in a heatmap ---
+st.header("Compare skill demand across roles")
+with st.container(horizontal=True):
+    st.plotly_chart(skill_heatmap(roles), width="content", key="skill-heatmap")
+
+# --- TA4-59: Compare two roles side by side (TA4-60 dropdowns, TA4-61 grouping) ---
+st.header("Compare two roles")
+render_role_comparison(roles)
+
 # --- TA4-52: Role dropdown (shares its list and behavior with TA4-54) ---
 # --- TA4-51: The selected role's stored skill profile (up to 20 skills) ---
 st.header("Role skill profile")
@@ -109,18 +118,9 @@ else:
             key="role-profile",
         )
 
+
 # --- TA4-41: Skill input (the person's own skills) ---
 selected_skill_names = set()  # skill names the person picked; empty until they pick some
-# --- TA4-67: Compare skill demand across roles in a heatmap ---
-st.header("Compare skill demand across roles")
-with st.container(horizontal=True):
-    st.plotly_chart(skill_heatmap(roles), width="content", key="skill-heatmap")
-
-# --- TA4-59: Compare two roles side by side (TA4-60 dropdowns, TA4-61 grouping) ---
-st.header("Compare two roles")
-render_role_comparison(roles)
-
-
 
 if database is None:
     st.caption("Skill selection uses the real database. Turn off the synthetic demo data to use it.")
