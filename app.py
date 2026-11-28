@@ -17,6 +17,7 @@ from birdseye.skill_ranking import combine_roles, load_top_skills
 from birdseye.skill_search import list_skills
 from birdseye.skill_summary import MissingSkillTables, load_summary, summarize
 from birdseye.role_comparison_view import render_role_comparison
+from birdseye.auth_view import render_account_sidebar
 
 
 def demo_summary():
@@ -37,6 +38,8 @@ def demo_summary():
 
 st.set_page_config(page_title="Birdseye View", layout="wide")
 st.title("Birdseye View")
+# Optional account creation sidebar
+render_account_sidebar()
 demo = st.sidebar.checkbox("Use synthetic demo data")
 database = None  # only set to a real path when not in demo mode
 if demo:

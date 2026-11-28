@@ -130,6 +130,40 @@ Run it after every extract_skills.py run. The dashboard's "Role skill profile" a
 Select **Use synthetic demo data** in the sidebar to try the dashboard without
 downloading data. See [skill counting rules](docs/skill_summary.md).
 
+## Accounts
+
+Accounts are optional: the dashboard works the same without one. Birdseye runs
+locally, so each person's accounts live in their own database file,
+`data/processed/accounts.db`. It's separate from `birdseye.db`, so rebuilding the
+job data never removes accounts, and it's ignored by Git. It's created automatically
+the first time someone creates an account or runs one of the account scripts.
+
+Add the shared test users once, so everyone has the same logins:
+
+```bash
+python scripts/setup_accounts.py --seed
+```
+
+| Name | Email | Password | Role |
+|---|---|---|---|
+| Test User | `test@birdseye.dev` | `birdseye123` | user |
+| Second Tester | `test2@birdseye.dev` | `birdseye123` | user |
+| Admin User | `admin@birdseye.dev` | `birdseye123` | admin |
+
+These are test passwords only. To make your own account, open **Create an account
+(optional)** in the dashboard sidebar. Passwords are stored only as salted scrypt
+hashes, never as plain text.
+
+Admin tasks, from the command line:
+
+```bash
+python scripts/manage_accounts.py list
+python scripts/manage_accounts.py reset-password test@birdseye.dev
+python scripts/manage_accounts.py delete test@birdseye.dev
+```
+
+Set `BIRDSEYE_ACCOUNTS_DB` to use another accounts file.
+
 ## Run the tests
 
 From the repository root, with the virtual environment active:
@@ -163,14 +197,17 @@ storage, and batch processing. Running it as `python -m pytest`, rather than pla
 ├── scripts/
 │   ├── download_data.py         Download the dataset from Kaggle
 │   ├── clean_data.py            Run the cleaning steps in order
-│   └── cleaning_functions.py    How each cleaning step works
+│   ├── cleaning_functions.py    How each cleaning step works
+│   ├── setup_accounts.py        Create the accounts database and test users
+│   └── manage_accounts.py       List users, reset passwords, delete users
 ├── tests/                       Automated tests (run with python -m pytest)
 ├── docs/
 │   ├── data/cleaning_report.md  Latest cleaning results (generated)
 │   └── images/                  Logo and other images
 ├── data/                        Local data (see data/README.md; never committed)
 │   ├── raw/                     Downloaded Kaggle files
-│   └── processed/birdseye.db    Cleaned database (generated)
+│   ├── processed/birdseye.db    Cleaned database (generated)
+│   └── processed/accounts.db    Local user accounts (generated)
 ├── requirements.txt             Pinned Python dependencies (also installs src/birdseye)
 ├── pyproject.toml               Makes src/birdseye importable as `import birdseye`
 ├── pytest.ini                   Test settings
