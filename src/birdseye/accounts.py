@@ -201,7 +201,7 @@ def create_user(
         raise AccountError("Role must be 'user' or 'admin'.")
     # Notify if account already exists
     if get_user_by_email(conn, email) is not None:
-        raise AccountError("An account with that email already exists. Sign in instead.")
+        raise AccountError("An account with that email already exists.")
     try:
         with conn:
             # Run the SQL call
@@ -214,7 +214,7 @@ def create_user(
             )
     # Two sign-ups with the same email at once
     except sqlite3.IntegrityError as error:
-        raise AccountError("An account with that email already exists. Sign in instead.") from error
+        raise AccountError("An account with that email already exists.") from error
     return get_user(conn, cursor.lastrowid)
 
 

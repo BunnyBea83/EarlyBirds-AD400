@@ -24,10 +24,36 @@ Headings:
 
 Skip the changelog for typo fixes, formatting or comment-only PRs.
 -->
-
 ## [Unreleased]
 
 ### Added
+
+- TA4-81: Optional account creation (first and last name, email and password) from the dashboard sidebar. Accounts are stored locally with hashed passwords, with shared test users (`scripts/setup_accounts.py --seed`) and command-line admin tasks (`scripts/manage_accounts.py`).
+
+### Changed
+
+### Fixed
+
+### Removed
+
+### Data
+
+### Infrastructure
+
+
+<!--
+AT SPRINT END (PM)
+
+1. Copy the [Unreleased] section below this comment.
+2. Rename it to: ## [0.X.0] - Sprint name - YYYY-MM-DD
+3. Delete any empty headings in the copied section.
+4. Leave a fresh, empty [Unreleased] section at the top.
+-->
+
+## [0.1.0] - Soar 1 - 2026-11-19
+
+### Added
+
 - TA4-48/TA4-50: Added “How well do my skills match a role?”: pick a role and your skills to see how many of the role’s top skills you have (“7 out of 20”), with the skills you have and the ones you’re missing listed by demand. 
 - TA4-41: Added a skill picker: alphabetical, duplicate-free skill list with live, synonym-aware search multi-select with per-skill removal.
 - TA4-52: The dashboard now has a role dropdown: choose one role from the full list, and picking another replaces it.
@@ -44,16 +70,20 @@ Skip the changelog for typo fixes, formatting or comment-only PRs.
 - TA4-45: Cleaning report with step-by-step row counts, missing-value choices, known limitations and a data dictionary (`docs/data/cleaning_report.md`). (#2)
 
 ### Changed
+
 - TA4-48/TA4-50: Role profiles now leave out skills that fewer than 1% of a role’s postings mention.
 
 ### Fixed
+
 - TA4-37: Show specific extraction error hints for missing or locked databases without suggesting a rebuild for unrelated failures. (#7)
 - TA4-42: Normalize capitalization and whitespace when saving canonical skill links. (#5)
 - TA4-44: Preserve a skill's category when renaming unless a replacement or explicit None is provided. (#6)
 
 ### Removed
 
+
 ### Data
+
 - TA4-42: Save one canonical skill link per posting and replace previous matches atomically on reruns.
 - TA4-38: Add the canonical skills catalog, optional categories, normalized aliases, and posting relationships in SQLite.
 - TA4-39: Raw postings, company and industry files load into a SQLite database (`data/processed/birdseye.db`) with `python scripts/clean_data.py`. (#2)
@@ -63,32 +93,8 @@ Skip the changelog for typo fixes, formatting or comment-only PRs.
 - TA4-41: User can add their own skills in one (non-persistent) session.
 
 ### Infrastructure
+
 - TA4-74: Repository set up with README, contribution guide, changelog, pinned dependencies and a smoke test. (#1)
 - TA4-74: One-command dataset download with `python scripts/download_data.py`. (#1)
 - TA4-74: The `birdseye` package can be imported anywhere after `pip install -r requirements.txt`. (#1)
 - TA4-24: Tests for the cleaning rules; README and data README explain building and viewing the database. (#2)
-
-<!--
-AT SPRINT END (PM)
-
-1. Copy the [Unreleased] section below this comment.
-2. Rename it to: ## [0.X.0] - Sprint name - YYYY-MM-DD
-3. Delete any empty headings in the copied section.
-4. Leave a fresh, empty [Unreleased] section at the top.
--->
-
-<!--
-EXAMPLE OF A FINISHED RELEASE (delete once you have a real one)
-
-## [0.1.0] - Soar 1 - 2026-11-19
-
-### Added
-- TA4-54: Top 15 skills summary, filterable by role. (#8)
-- TA4-15: Bar chart of the top 15 skills for two roles. (#10)
-
-### Data
-- TA4-24: Cleaned LinkedIn 2023-2024 dataset; duplicates and empty postings removed. (#4)
-
-### Infrastructure
-- TA4-74: Repository, README and contribution guide set up. (#1)
--->
